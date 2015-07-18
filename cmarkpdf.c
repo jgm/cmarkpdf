@@ -30,8 +30,6 @@ static void print_document(cmark_node *document, char *outfile,
 {
 	int result;
 	result = cmark_render_pdf(document, options, outfile);
-	printf("%d", result);
-	printf("outfile = %s\n", outfile);
 }
 
 int main(int argc, char *argv[])
