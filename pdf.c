@@ -8,7 +8,12 @@
 #include <setjmp.h>
 #include "hpdf.h"
 
-#define LINE_SPREAD 1.2
+#define LINE_SPREAD 1.4
+#define MAIN_FONT "/Library/Fonts/Georgia.ttf"
+#define MARGIN_TOP 100
+#define MARGIN_LEFT 50
+#define TEXT_WIDTH 500
+#define TEXT_HEIGHT 750
 
 jmp_buf env;
 
@@ -41,31 +46,36 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 {
 	const char *text;
 	int entering = ev_type == CMARK_EVENT_ENTER;
+	const char *fontname;
 
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
 		if (entering) {
-			/* create default-font */
-			state->font = HPDF_GetFont (state->pdf, "Helvetica", NULL);
+			fontname = HPDF_LoadTTFontFromFile(state->pdf,
+							   MAIN_FONT,
+							   HPDF_TRUE);
+			state->font = HPDF_GetFont (state->pdf, fontname,
+						    "UTF-8");
 			state->font_size = 14;
 
 			/* add a new page object. */
 			state->page = HPDF_AddPage (state->pdf);
 			HPDF_Page_SetFontAndSize (state->page, state->font, state->font_size);
 
-			state->x = 50;
-			state->y = HPDF_Page_GetHeight(state->page) - state->font_size;
+			state->x = MARGIN_LEFT;
+			state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
 		}
 
 		break;
 
 	case CMARK_NODE_TEXT:
 		printf("y = %f\n", state->y);
-		if (state->y < 100) {
+		if (state->y < HPDF_Page_GetHeight(state->page) -
+		    TEXT_HEIGHT) {
 			/* add a new page object. */
 			state->page = HPDF_AddPage (state->pdf);
 			HPDF_Page_SetFontAndSize (state->page, state->font, state->font_size);
-			state->y = HPDF_Page_GetHeight(state->page) - state->font_size;
+			state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
 		}
 		text = cmark_node_get_literal(node);
 		HPDF_Page_BeginText (state->page);
