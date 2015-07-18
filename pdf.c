@@ -8,7 +8,6 @@
 #include <setjmp.h>
 #include "hpdf.h"
 
-#define LINE_SPREAD 1.4
 #define MAIN_FONT_PATH "/Library/Fonts/Georgia.ttf"
 #define TT_FONT_PATH "/Library/Fonts/Andale Mono.ttf"
 #define MARGIN_TOP 100
@@ -37,6 +36,7 @@ struct render_state {
 	HPDF_Font main_font;
 	HPDF_Font tt_font;
 	HPDF_REAL font_size;
+	HPDF_REAL leading;
 	HPDF_Page page;
 	float x;
 	float y;
@@ -67,6 +67,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 						       tt_font,
 						       "UTF-8");
 			state->font_size = 14;
+			state->leading = 6;
 
 			/* add a new page object. */
 			state->page = HPDF_AddPage (state->pdf);
@@ -79,12 +80,12 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		break;
 
 	case CMARK_NODE_PARAGRAPH:
-		state->y -= (0.5 * state->font_size * LINE_SPREAD);
+		state->y -= (0.5 * (state->font_size + state->leading));
 		break;
 
 	case CMARK_NODE_HEADER:
 		if (entering) {
-			state->y -= (state->font_size * LINE_SPREAD);
+			state->y -= (state->font_size + state->leading);
 			int lev = cmark_node_get_header_level(node);
 			HPDF_Page_SetFontAndSize (state->page,
 						  state->main_font,
@@ -107,7 +108,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 				   cmark_node_get_literal(node));
 		HPDF_Page_EndText (state->page);
 		state->x = 50;
-		state->y -= (state->font_size * LINE_SPREAD);
+		state->y -= (state->font_size + state->leading);
 		HPDF_Page_SetFontAndSize (state->page,
 					  state->main_font,
 					  state->font_size);
@@ -127,7 +128,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		HPDF_Page_TextOut (state->page, state->x, state->y, text);
 		HPDF_Page_EndText (state->page);
 		state->x = 50;
-		state->y -= (state->font_size * LINE_SPREAD);
+		state->y -= (state->font_size + state->leading);
 		break;
 
 	default:
