@@ -42,6 +42,26 @@ struct render_state {
 	float y;
 };
 
+void
+S_render_text(struct render_state *state, const char *text)
+{
+	HPDF_Point curpos;
+	HPDF_Page_BeginText (state->page);
+	HPDF_Page_MoveTextPos(state->page,
+			      state->x, state->y);
+	HPDF_Page_ShowText(state->page,
+			   text);
+	curpos = HPDF_Page_GetCurrentTextPos(state->page);
+	HPDF_Page_EndText (state->page);
+	if (curpos.x > MARGIN_LEFT + TEXT_WIDTH) {
+		state->x = MARGIN_LEFT;
+		state->y -= (state->font_size + state->leading);
+	} else {
+		state->x = curpos.x;
+		state->y = curpos.y;
+	}
+}
+
 static int
 S_render_node(cmark_node *node, cmark_event_type ev_type,
               struct render_state *state, int options)
@@ -50,7 +70,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	int entering = ev_type == CMARK_EVENT_ENTER;
 	const char *main_font;
 	const char *tt_font;
-	HPDF_Point curpos;
 
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
@@ -104,15 +123,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 					  state->tt_font,
 					  state->font_size);
 
-		HPDF_Page_BeginText (state->page);
-		HPDF_Page_MoveTextPos(state->page,
-				      state->x, state->y);
-		HPDF_Page_ShowText(state->page,
-				   cmark_node_get_literal(node));
-		curpos = HPDF_Page_GetCurrentTextPos(state->page);
-		HPDF_Page_EndText (state->page);
-		state->x = curpos.x;
-		state->y = curpos.y;
+		S_render_text(state, cmark_node_get_literal(node));
 		HPDF_Page_SetFontAndSize (state->page,
 					  state->main_font,
 					  state->font_size);
@@ -128,11 +139,12 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
 		}
 		text = cmark_node_get_literal(node);
-		HPDF_Page_BeginText (state->page);
-		HPDF_Page_TextOut (state->page, state->x, state->y, text);
-		HPDF_Page_EndText (state->page);
-		state->x = 50;
-		state->y -= (state->font_size + state->leading);
+		S_render_text(state, text);
+		// HPDF_Page_BeginText (state->page);
+		// HPDF_Page_TextOut (state->page, state->x, state->y, text);
+		// HPDF_Page_EndText (state->page);
+		// state->x = 50;
+		// state->y -= (state->font_size + state->leading);
 		break;
 
 	default:
