@@ -8,12 +8,28 @@
 #include <setjmp.h>
 #include "hpdf.h"
 
+/*
+ * TODO
+ * For a better approach, have the inline renderers add to a list
+ * of InlineElements.  Each of these has full information about
+ * text content (which might be a space), minimum width,
+ * font (tt or main), hyperlink destination,
+ * image information, bold or italic flags.
+ * Regular spaces and hard breaks will also be InlineElements.
+ * Then have a routine that renders a list of these, splitting
+ * them intelligently into lines (Knuth/Prass or something simpler).
+ * Start by implementing this for regular TEXT, CODE, LINE_BREAK,
+ * SOFT_BREAK, and spaces. Note that the renderer for TEXT will
+ * have to break on spaces and insert appropriate space elements.
+*/
+
+
 #define MAIN_FONT_PATH "/Library/Fonts/Georgia.ttf"
 #define TT_FONT_PATH "/Library/Fonts/Andale Mono.ttf"
-#define MARGIN_TOP 100
-#define MARGIN_LEFT 50
-#define TEXT_WIDTH 500
-#define TEXT_HEIGHT 750
+#define MARGIN_TOP 80
+#define MARGIN_LEFT 80
+#define TEXT_WIDTH 420
+#define TEXT_HEIGHT 760
 
 jmp_buf env;
 
@@ -39,12 +55,13 @@ struct render_state {
 	HPDF_REAL current_font_size;
 	HPDF_REAL leading;
 	HPDF_Page page;
+	float indent;
 	float x;
 	float y;
 };
 
 static void
-render_text(struct render_state *state, HPDF_Font font, const char *text)
+render_text(struct render_state *state, HPDF_Font font, const char *text, int wrap)
 {
 	HPDF_TextWidth width;
 	int len;
@@ -59,15 +76,16 @@ render_text(struct render_state *state, HPDF_Font font, const char *text)
 		state->x += (state->current_font_size / 6);
 	}
 
-	tok = strtok((char *)text, " ");
+	tok = strtok((char *)text, wrap ? " " : "");
 
 	while (tok != NULL) {
 
 		len = strlen(tok);
 		width = HPDF_Font_TextWidth(font, (const HPDF_BYTE*)tok, len);
 		real_width = ( width.width * state->current_font_size ) / 1000;
-		if (state->x + real_width > MARGIN_LEFT + TEXT_WIDTH) {
-			state->x = MARGIN_LEFT;
+		if (state->x + real_width > MARGIN_LEFT + state->indent +
+		    TEXT_WIDTH) {
+			state->x = MARGIN_LEFT + state->indent;
 			state->y -= (state->current_font_size + state->leading);
 		}
 		HPDF_Page_BeginText (state->page);
@@ -84,6 +102,15 @@ render_text(struct render_state *state, HPDF_Font font, const char *text)
 
 	if (final_space) {
 		state->x += (state->current_font_size / 6);
+	}
+}
+
+static void
+parbreak(struct render_state *state)
+{
+	if (state->x > MARGIN_LEFT + state->indent) {
+		state->y -= (1.5 * (state->current_font_size + state->leading));
+		state->x = MARGIN_LEFT + state->indent;
 	}
 }
 
@@ -114,22 +141,43 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			state->base_font_size = 12;
 			state->current_font_size = 12;
 			state->leading = 4;
+			state->indent = 0;
 
 			/* add a new page object. */
 			state->page = HPDF_AddPage (state->pdf);
 			HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
 
-			state->x = MARGIN_LEFT;
+			state->x = MARGIN_LEFT + state->indent;
 			state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
 		}
 
 		break;
 
+	case CMARK_NODE_ITEM:
+		if (entering) {
+			parbreak(state);
+			HPDF_Page_BeginText (state->page);
+			HPDF_Page_MoveTextPos(state->page, state->x, state->y);
+			HPDF_Page_ShowText(state->page, "-");
+			HPDF_Page_EndText (state->page);
+			state->indent += 24;
+			state->x = MARGIN_LEFT + state->indent;
+		} else {
+			state->indent -= 24;
+		}
+		break;
+
 	case CMARK_NODE_PARAGRAPH:
 		if (entering) {
-			state->y -= (1.5 * (state->current_font_size + state->leading));
-			state->x = MARGIN_LEFT;
+			parbreak(state);
 		}
+		break;
+
+	case CMARK_NODE_CODE_BLOCK:
+		parbreak(state);
+		HPDF_Page_SetFontAndSize (state->page, state->tt_font, state->current_font_size);
+		render_text(state, state->tt_font, cmark_node_get_literal(node), 0);
+		HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
 		break;
 
 	case CMARK_NODE_HEADER:
@@ -139,8 +187,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			HPDF_Page_SetFontAndSize (state->page,
 						  state->main_font,
 						  state->current_font_size);
-			state->y -= (1.5 * (state->current_font_size + state->leading));
-			state->x = MARGIN_LEFT;
+			parbreak(state);
 		} else {
 			state->y -= (0.3 * (state->current_font_size + state->leading));
 			state->current_font_size = state->base_font_size;
@@ -155,7 +202,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 					  state->tt_font,
 					  state->current_font_size);
 
-		render_text(state, state->tt_font, cmark_node_get_literal(node));
+		render_text(state, state->tt_font, cmark_node_get_literal(node), 1);
 		HPDF_Page_SetFontAndSize (state->page,
 					  state->main_font,
 					  state->current_font_size);
@@ -174,7 +221,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
 		}
 		text = cmark_node_get_literal(node);
-		render_text(state, state->main_font, text);
+		render_text(state, state->main_font, text, 1);
 		break;
 
 	default:
