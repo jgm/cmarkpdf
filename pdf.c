@@ -35,15 +35,16 @@ struct render_state {
 	HPDF_Doc pdf;
 	HPDF_Font main_font;
 	HPDF_Font tt_font;
-	HPDF_REAL font_size;
+	HPDF_REAL base_font_size;
+	HPDF_REAL current_font_size;
 	HPDF_REAL leading;
 	HPDF_Page page;
 	float x;
 	float y;
 };
 
-void
-S_render_text(struct render_state *state, HPDF_Font font, const char *text)
+static void
+render_text(struct render_state *state, HPDF_Font font, const char *text)
 {
 	HPDF_TextWidth width;
 	int len;
@@ -55,7 +56,7 @@ S_render_text(struct render_state *state, HPDF_Font font, const char *text)
 	final_space = text && text[strlen(text) - 1] == ' ';
 
 	if (initial_space) {
-		state->x += (state->font_size / 6);
+		state->x += (state->current_font_size / 6);
 	}
 
 	tok = strtok((char *)text, " ");
@@ -64,10 +65,10 @@ S_render_text(struct render_state *state, HPDF_Font font, const char *text)
 
 		len = strlen(tok);
 		width = HPDF_Font_TextWidth(font, (const HPDF_BYTE*)tok, len);
-		real_width = ( width.width * state->font_size ) / 1000;
+		real_width = ( width.width * state->current_font_size ) / 1000;
 		if (state->x + real_width > MARGIN_LEFT + TEXT_WIDTH) {
 			state->x = MARGIN_LEFT;
-			state->y -= (state->font_size + state->leading);
+			state->y -= (state->current_font_size + state->leading);
 		}
 		HPDF_Page_BeginText (state->page);
 		HPDF_Page_MoveTextPos(state->page, state->x, state->y);
@@ -76,13 +77,13 @@ S_render_text(struct render_state *state, HPDF_Font font, const char *text)
 		state->x += real_width;
 		tok = strtok(NULL, " ");
 		if (tok) {
-			state->x += (state->font_size / 6);
+			state->x += (state->current_font_size / 6);
 		}
 
 	}
 
 	if (final_space) {
-		state->x += (state->font_size / 6);
+		state->x += (state->current_font_size / 6);
 	}
 }
 
@@ -110,12 +111,13 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			state->tt_font = HPDF_GetFont (state->pdf,
 						       tt_font,
 						       "UTF-8");
-			state->font_size = 12;
+			state->base_font_size = 12;
+			state->current_font_size = 12;
 			state->leading = 4;
 
 			/* add a new page object. */
 			state->page = HPDF_AddPage (state->pdf);
-			HPDF_Page_SetFontAndSize (state->page, state->main_font, state->font_size);
+			HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
 
 			state->x = MARGIN_LEFT;
 			state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
@@ -125,41 +127,42 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 
 	case CMARK_NODE_PARAGRAPH:
 		if (entering) {
-			state->y -= (1.5 * (state->font_size + state->leading));
+			state->y -= (1.5 * (state->current_font_size + state->leading));
 			state->x = MARGIN_LEFT;
 		}
 		break;
 
 	case CMARK_NODE_HEADER:
 		if (entering) {
-			state->y -= (2.5 * (state->font_size + state->leading));
-			state->x = MARGIN_LEFT;
 			int lev = cmark_node_get_header_level(node);
+			state->current_font_size = state->base_font_size * (1.66 - (lev/6));
 			HPDF_Page_SetFontAndSize (state->page,
 						  state->main_font,
-						  state->font_size *
-						  (1.66 - (lev / 6)));
+						  state->current_font_size);
+			state->y -= (1.5 * (state->current_font_size + state->leading));
+			state->x = MARGIN_LEFT;
 		} else {
-			state->y -= (0.3 * (state->font_size + state->leading));
+			state->y -= (0.3 * (state->current_font_size + state->leading));
+			state->current_font_size = state->base_font_size;
 			HPDF_Page_SetFontAndSize (state->page,
 						  state->main_font,
-						  state->font_size);
+						  state->current_font_size);
 		}
 		break;
 
 	case CMARK_NODE_CODE:
 		HPDF_Page_SetFontAndSize (state->page,
 					  state->tt_font,
-					  state->font_size);
+					  state->current_font_size);
 
-		S_render_text(state, state->tt_font, cmark_node_get_literal(node));
+		render_text(state, state->tt_font, cmark_node_get_literal(node));
 		HPDF_Page_SetFontAndSize (state->page,
 					  state->main_font,
-					  state->font_size);
+					  state->current_font_size);
 		break;
 
 	case CMARK_NODE_SOFTBREAK:
-		state->x += (state->font_size / 6);
+		state->x += (state->current_font_size / 6);
 		break;
 
 	case CMARK_NODE_TEXT:
@@ -167,11 +170,11 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		    TEXT_HEIGHT) {
 			/* add a new page object. */
 			state->page = HPDF_AddPage (state->pdf);
-			HPDF_Page_SetFontAndSize (state->page, state->main_font, state->font_size);
+			HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
 			state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
 		}
 		text = cmark_node_get_literal(node);
-		S_render_text(state, state->main_font, text);
+		render_text(state, state->main_font, text);
 		break;
 
 	default:
