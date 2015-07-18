@@ -46,27 +46,43 @@ void
 S_render_text(struct render_state *state, HPDF_Font font, const char *text)
 {
 	HPDF_TextWidth width;
-	int len = strlen(text);
+	int len;
 	float real_width;
+	char * tok;
+	int initial_space, final_space;
 
-	if (text && text[0] == ' ') {
-	 	state->x += (state->font_size / 6);
+	initial_space = text && text[0] == ' ';
+	final_space = text && text[strlen(text) - 1] == ' ';
+
+	if (initial_space) {
+		state->x += (state->font_size / 6);
 	}
-	width = HPDF_Font_TextWidth(font, (const HPDF_BYTE*)text, len);
-	real_width = ( width.width * state->font_size ) / 1000;
-	if (state->x + real_width > MARGIN_LEFT + TEXT_WIDTH) {
-		state->x = MARGIN_LEFT;
-		state->y -= (state->font_size + state->leading);
+
+	tok = strtok((char *)text, " ");
+
+	while (tok != NULL) {
+
+		len = strlen(tok);
+		width = HPDF_Font_TextWidth(font, (const HPDF_BYTE*)tok, len);
+		real_width = ( width.width * state->font_size ) / 1000;
+		if (state->x + real_width > MARGIN_LEFT + TEXT_WIDTH) {
+			state->x = MARGIN_LEFT;
+			state->y -= (state->font_size + state->leading);
+		}
+		HPDF_Page_BeginText (state->page);
+		HPDF_Page_MoveTextPos(state->page, state->x, state->y);
+		HPDF_Page_ShowText(state->page, tok);
+		HPDF_Page_EndText (state->page);
+		state->x += real_width;
+		tok = strtok(NULL, " ");
+		if (tok) {
+			state->x += (state->font_size / 6);
+		}
+
 	}
-	HPDF_Page_BeginText (state->page);
-	HPDF_Page_MoveTextPos(state->page,
-			      state->x, state->y);
-	HPDF_Page_ShowText(state->page,
-			   text);
-	HPDF_Page_EndText (state->page);
-	state->x += real_width;
-	if (len > 1 && text[len - 1] == ' ') {
-	 	state->x += (state->font_size / 6);
+
+	if (final_space) {
+		state->x += (state->font_size / 6);
 	}
 }
 
