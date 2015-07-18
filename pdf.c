@@ -50,6 +50,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	int entering = ev_type == CMARK_EVENT_ENTER;
 	const char *main_font;
 	const char *tt_font;
+	HPDF_Point curpos;
 
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
@@ -104,11 +105,14 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 					  state->font_size);
 
 		HPDF_Page_BeginText (state->page);
-		HPDF_Page_TextOut (state->page, state->x, state->y,
+		HPDF_Page_MoveTextPos(state->page,
+				      state->x, state->y);
+		HPDF_Page_ShowText(state->page,
 				   cmark_node_get_literal(node));
+		curpos = HPDF_Page_GetCurrentTextPos(state->page);
 		HPDF_Page_EndText (state->page);
-		state->x = 50;
-		state->y -= (state->font_size + state->leading);
+		state->x = curpos.x;
+		state->y = curpos.y;
 		HPDF_Page_SetFontAndSize (state->page,
 					  state->main_font,
 					  state->font_size);
