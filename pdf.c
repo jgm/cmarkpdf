@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <stdbool.h>
 #include <cmark.h>
 #include "cmarkpdf.h"
 #include <math.h>
@@ -49,21 +50,25 @@ error_handler (HPDF_STATUS   error_no,
     longjmp(env, 1);
 }
 
-enum text_box_type {
+enum box_type {
 	TEXT,
 	SPACE,
 	BREAK
 };
 
-struct text_box {
-	enum text_box_type type;
+struct box {
+	enum box_type type;
 	const char * text;
+	int len;
+	HPDF_Font font;
 	float width;
-	struct text_box * next;
+	struct box * next;
 };
 
+typedef struct box box;
+
 static void
-print_text_box(struct text_box * box)
+print_box(box * box)
 {
 	switch (box->type) {
 	case TEXT:
@@ -92,35 +97,43 @@ struct render_state {
 	float indent;
 	float x;
 	float y;
-	struct text_box * text_list_bottom;
-	struct text_box * text_list_top;
+	box * boxes_bottom;
+	box * boxes_top;
 };
 
 static void
-push_text_box(struct render_state *state,
-	      enum text_box_type type,
-	      const char * text,
-	      float width)
+push_box(struct render_state *state,
+	 enum box_type type,
+	 const char * text,
+	 HPDF_Font font)
 {
-	struct text_box * new =
-		(struct text_box*)malloc(sizeof(struct text_box));
+	HPDF_TextWidth width;
+	box * new =
+		(box*)malloc(sizeof(box));
 	if (new == NULL)
 		return;
 	new->type = type;
 	new->text = text;
-	new->width = width;
-	new->next = NULL;
-	if (state->text_list_top != NULL) {
-		state->text_list_top->next = new;
+	new->len = strlen(text);
+	new->font = font;
+	width = HPDF_Font_TextWidth(font, (HPDF_BYTE*)text, new->len);
+	new->width = ( width.width * state->current_font_size ) / 1000;
+	if (new->type == SPACE) {
+		// spaces have minimum width reduced to aid justification
+		new->width *= 0.75;
 	}
-	state->text_list_top = new;
-	if (state->text_list_bottom == NULL) {
-		state->text_list_bottom = new;
+	new->next = NULL;
+	if (state->boxes_top != NULL) {
+		state->boxes_top->next = new;
+	}
+	state->boxes_top = new;
+	if (state->boxes_bottom == NULL) {
+		state->boxes_bottom = new;
 	}
 }
 
 static void
-render_text(struct render_state *state, HPDF_Font font, const char *text, int wrap)
+render_text(struct render_state *state, HPDF_Font font, const char *text, bool wrap)
 {
 	HPDF_TextWidth width;
 	int len;
@@ -150,36 +163,10 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, int wr
 			tok = (char *)malloc((next - last_tok) + 1);
 			memcpy(tok, last_tok, next - last_tok);
 			tok[next - last_tok] = 0;
-			len = next - last_tok;
-			// printf("token: |%s| len %d\n", tok, len);
-			if (tok[0] == '\n') {
-				state->x = MARGIN_LEFT + state->indent;
-				state->y -= strlen(tok) * (state->current_font_size + state->leading);
-			} else {
-				width = HPDF_Font_TextWidth(font, (const HPDF_BYTE*)tok, len);
-				real_width = ( width.width * state->current_font_size ) / 1000;
-				if (wrap && state->x + real_width > MARGIN_LEFT + state->indent + TEXT_WIDTH) {
-					state->x = MARGIN_LEFT + state->indent;
-					state->y -= (state->current_font_size + state->leading);
-				}
-				if (state->y < HPDF_Page_GetHeight(state->page) -
-				    TEXT_HEIGHT) {
-					/* add a new page object. */
-					state->page = HPDF_AddPage (state->pdf);
-					HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
-					state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
-				}
-				HPDF_Page_BeginText (state->page);
-				HPDF_Page_MoveTextPos(state->page, state->x, state->y);
-				HPDF_Page_ShowText(state->page, tok);
-				HPDF_Page_EndText (state->page);
-				state->x += real_width;
-			}
-
 			last_tok = next;
-			push_text_box(state, tok[0] == ' ' ?
+			push_box(state, tok[0] == ' ' ?
 				      SPACE : (tok[0] == '\n' ?
-					       BREAK : TEXT), tok, real_width);
+					       BREAK : TEXT), tok, font);
 			// free(tok);
 		}
 		if (*next == 0)
@@ -191,20 +178,105 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, int wr
 }
 
 static void
-process_text_boxes(struct render_state *state)
+render_box(struct render_state *state, box * b)
 {
-	struct text_box *box;
-	struct text_box *oldbox;
-
-	box = state->text_list_bottom;
-	while (box) {
-		print_text_box(box);
-		oldbox = box;
-		box = box->next;
-		free(oldbox);
+	if (state->y < HPDF_Page_GetHeight(state->page) -
+	    TEXT_HEIGHT) {
+		/* add a new page object. */
+		state->page = HPDF_AddPage (state->pdf);
+		HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
+		state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
 	}
-	state->text_list_top = NULL;
-	state->text_list_bottom = NULL;
+	if (b->type == SPACE) {
+		state->x += b->width;
+	} else {
+		HPDF_Page_BeginText (state->page);
+		HPDF_Page_MoveTextPos(state->page, state->x, state->y);
+		HPDF_Page_ShowText(state->page, b->text);
+		HPDF_Page_EndText (state->page);
+		state->x += b->width;
+	}
+}
+
+static void
+process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
+{
+	box *b;
+	box *tmp;
+	box *last_nonspace;
+	float total_width = 0;
+	float extra_space_width;
+	float line_end_space;
+	float max_width = TEXT_WIDTH - state->indent;
+	int numspaces;
+	int numspaces_to_last_nonspace;
+
+	while (state->boxes_bottom) {
+
+		numspaces = 0;
+		b = state->boxes_bottom;
+		// move forward to last box that can fit in line
+		while (b &&
+		       b->type != BREAK &&
+		       (!wrap || total_width + b->width <= max_width)) {
+			total_width += b->width;
+			if (b->type == SPACE) {
+				numspaces++;
+			} else {
+				last_nonspace = b;
+				numspaces_to_last_nonspace = numspaces;
+			}
+			b = b->next;
+		}
+
+		// recalculate space widths, unless last line of para.
+		if (b && wrap) {
+			line_end_space = max_width - total_width;
+			extra_space_width = (line_end_space / numspaces_to_last_nonspace);
+		} else {
+			extra_space_width = 0;
+		}
+
+		tmp = state->boxes_bottom;
+		if (wrap) {
+			while (tmp && tmp != last_nonspace) {
+				if (tmp->type == SPACE) {
+					tmp->width += extra_space_width;
+				}
+				tmp = tmp->next;
+			}
+		}
+
+		// emit line up to last_nonspace;
+		printf("Emitting line...\n");
+
+		// remove and free everything up to last_nonspace,
+		// plus any following spaces. reset boxes_bottom.
+		total_width = 0;
+		while (state->boxes_bottom &&
+		       (state->boxes_bottom != last_nonspace->next)) {
+			print_box(state->boxes_bottom);
+			render_box(state, state->boxes_bottom);
+			tmp = state->boxes_bottom->next;
+			// free((char *)state->boxes_bottom->text);
+			free(state->boxes_bottom);
+			state->boxes_bottom = tmp;
+		}
+		//gobble spaces
+		while (state->boxes_bottom && state->boxes_bottom->type == SPACE) {
+			tmp = state->boxes_bottom->next;
+			// free(state->boxes_bottom->text);
+			free(state->boxes_bottom);
+			state->boxes_bottom = tmp;
+		}
+
+		// reset to beginning of next line
+		state->x = MARGIN_LEFT + state->indent;
+		state->y -= (state->current_font_size + state->leading);
+
+	}
+	state->boxes_top = NULL;
+	state->boxes_bottom = NULL;
 
 }
 
@@ -221,32 +293,33 @@ static int
 S_render_node(cmark_node *node, cmark_event_type ev_type,
               struct render_state *state, int options)
 {
-	const char *text;
 	int entering = ev_type == CMARK_EVENT_ENTER;
 	const char *main_font;
 	const char *tt_font;
-
+	HPDF_TextWidth width;
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
 		if (entering) {
+			state->base_font_size = 10;
+			state->current_font_size = 10;
+			state->leading = 4;
+			state->indent = 0;
+			state->boxes_bottom = NULL;
+			state->boxes_top = NULL;
+
 			main_font = HPDF_LoadTTFontFromFile(state->pdf,
 							   MAIN_FONT_PATH,
 							   HPDF_TRUE);
 			state->main_font = HPDF_GetFont (state->pdf,
 							 main_font,
 							 "UTF-8");
+
 			tt_font = HPDF_LoadTTFontFromFile(state->pdf,
 							   TT_FONT_PATH,
 							   HPDF_TRUE);
 			state->tt_font = HPDF_GetFont (state->pdf,
 						       tt_font,
 						       "UTF-8");
-			state->base_font_size = 12;
-			state->current_font_size = 12;
-			state->leading = 4;
-			state->indent = 0;
-			state->text_list_bottom = NULL;
-			state->text_list_top = NULL;
 
 			/* add a new page object. */
 			state->page = HPDF_AddPage (state->pdf);
@@ -276,14 +349,15 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		if (entering) {
 			parbreak(state);
 		} else {
-			process_text_boxes(state);
+			process_boxes(state, state->main_font, true);
 		}
 		break;
 
 	case CMARK_NODE_CODE_BLOCK:
 		parbreak(state);
 		HPDF_Page_SetFontAndSize (state->page, state->tt_font, state->current_font_size);
-		render_text(state, state->tt_font, cmark_node_get_literal(node), 0);
+		// render_text(state, state->tt_font, cmark_node_get_literal(node), false);
+		// process_boxes(state, state->tt_font, false);
 		HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
 		state->y -= (state->current_font_size + state->leading);
 		break;
@@ -297,6 +371,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 						  state->current_font_size);
 			parbreak(state);
 		} else {
+			process_boxes(state, state->main_font, true);
 			state->y -= (0.3 * (state->current_font_size + state->leading));
 			state->current_font_size = state->base_font_size;
 			HPDF_Page_SetFontAndSize (state->page,
@@ -306,23 +381,19 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		break;
 
 	case CMARK_NODE_CODE:
-		HPDF_Page_SetFontAndSize (state->page,
-					  state->tt_font,
-					  state->current_font_size);
-
-		render_text(state, state->tt_font, cmark_node_get_literal(node), 1);
-		HPDF_Page_SetFontAndSize (state->page,
-					  state->main_font,
-					  state->current_font_size);
+		render_text(state, state->tt_font, cmark_node_get_literal(node), false);
 		break;
 
 	case CMARK_NODE_SOFTBREAK:
-		render_text(state, state->main_font, " ", 1);
+		push_box(state, TEXT, " ", state->main_font);
+		break;
+
+	case CMARK_NODE_LINEBREAK:
+		push_box(state, BREAK, "\n", state->main_font);
 		break;
 
 	case CMARK_NODE_TEXT:
-		text = cmark_node_get_literal(node);
-		render_text(state, state->main_font, text, 1);
+		render_text(state, state->main_font, cmark_node_get_literal(node), true);
 		break;
 
 	default:
