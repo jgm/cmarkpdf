@@ -13,8 +13,10 @@
  * For a better approach, have the inline renderers add to a list
  * of InlineElements.  Each of these has full information about
  * text content (which might be a space), minimum width,
- * font (tt or main), hyperlink destination,
- * image information, bold or italic flags.
+ * hyperlink destination,
+ * image information.
+ * Also "command directives" like "turn on bold" or
+ * "turn off italic."
  * Regular spaces and hard breaks will also be InlineElements.
  * Then have a routine that renders a list of these, splitting
  * them intelligently into lines (Knuth/Prass or something simpler).
