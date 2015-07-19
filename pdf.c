@@ -191,6 +191,24 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, int wr
 }
 
 static void
+process_text_boxes(struct render_state *state)
+{
+	struct text_box *box;
+	struct text_box *oldbox;
+
+	box = state->text_list_bottom;
+	while (box) {
+		print_text_box(box);
+		oldbox = box;
+		box = box->next;
+		free(oldbox);
+	}
+	state->text_list_top = NULL;
+	state->text_list_bottom = NULL;
+
+}
+
+static void
 parbreak(struct render_state *state)
 {
 	if (state->x > MARGIN_LEFT + state->indent) {
@@ -207,8 +225,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	int entering = ev_type == CMARK_EVENT_ENTER;
 	const char *main_font;
 	const char *tt_font;
-	struct text_box *box;
-	struct text_box *oldbox;
 
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
@@ -260,16 +276,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		if (entering) {
 			parbreak(state);
 		} else {
-			box = state->text_list_bottom;
-			while (box) {
-				print_text_box(box);
-				oldbox = box;
-				box = box->next;
-				free(oldbox);
-			}
-			state->text_list_top = NULL;
-			state->text_list_bottom = NULL;
-
+			process_text_boxes(state);
 		}
 		break;
 
