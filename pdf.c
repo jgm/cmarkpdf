@@ -67,7 +67,6 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, int wr
 	int len;
 	float real_width;
 	char * tok;
-	int initial_space, final_space;
 	const char * last = text;
 	const char * next = text;
 	int parsing_spaces = text[0] == ' ' ? 1 : 0;
