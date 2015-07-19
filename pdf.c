@@ -47,6 +47,38 @@ error_handler (HPDF_STATUS   error_no,
     longjmp(env, 1);
 }
 
+enum text_box_type {
+	TEXT,
+	SPACE,
+	BREAK
+};
+
+struct text_box {
+	enum text_box_type type;
+	const char * text;
+	float width;
+	struct text_box * next;
+};
+
+static void
+print_text_box(struct text_box * box)
+{
+	switch (box->type) {
+	case TEXT:
+		printf("TEXT  ");
+		break;
+	case SPACE:
+		printf("SPACE ");
+		break;
+	case BREAK:
+		printf("BREAK ");
+		break;
+	default:
+		break;
+	}
+	printf("%5.2f|%s|\n", box->width, box->text);
+};
+
 struct render_state {
 	HPDF_Doc pdf;
 	HPDF_Font main_font;
@@ -58,7 +90,32 @@ struct render_state {
 	float indent;
 	float x;
 	float y;
+	struct text_box * text_list_bottom;
+	struct text_box * text_list_top;
 };
+
+static void
+push_text_box(struct render_state *state,
+	      enum text_box_type type,
+	      const char * text,
+	      float width)
+{
+	struct text_box * new =
+		(struct text_box*)malloc(sizeof(struct text_box));
+	if (new == NULL)
+		return;
+	new->type = type;
+	new->text = text;
+	new->width = width;
+	new->next = NULL;
+	if (state->text_list_top != NULL) {
+		state->text_list_top->next = new;
+	}
+	state->text_list_top = new;
+	if (state->text_list_bottom == NULL) {
+		state->text_list_bottom = new;
+	}
+}
 
 static void
 render_text(struct render_state *state, HPDF_Font font, const char *text, int wrap)
@@ -118,7 +175,10 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, int wr
 			}
 
 			last_tok = next;
-			free(tok);
+			push_text_box(state, tok[0] == ' ' ?
+				      SPACE : (tok[0] == '\n' ?
+					       BREAK : TEXT), tok, real_width);
+			// free(tok);
 		}
 		if (*next == 0)
 			break;
@@ -145,6 +205,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	int entering = ev_type == CMARK_EVENT_ENTER;
 	const char *main_font;
 	const char *tt_font;
+	struct text_box *box;
 
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
@@ -165,6 +226,8 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			state->current_font_size = 12;
 			state->leading = 4;
 			state->indent = 0;
+			state->text_list_bottom = NULL;
+			state->text_list_top = NULL;
 
 			/* add a new page object. */
 			state->page = HPDF_AddPage (state->pdf);
@@ -193,6 +256,12 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	case CMARK_NODE_PARAGRAPH:
 		if (entering) {
 			parbreak(state);
+		} else {
+			box = state->text_list_bottom;
+			while (box) {
+				print_text_box(box);
+				box = box->next;
+			}
 		}
 		break;
 
