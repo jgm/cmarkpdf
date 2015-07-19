@@ -67,42 +67,65 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, int wr
 	int len;
 	float real_width;
 	char * tok;
-	const char * last = text;
 	const char * next = text;
-	int parsing_spaces = text[0] == ' ' ? 1 : 0;
+	const char * last_tok = text;
+	int category = 0;
+	int last_category = 0;
 
-	while (last && *last != 0) {
-		last = next;
-		if (parsing_spaces) {
-			while (*next == ' ' && *next != 0)
-				next++;
-			parsing_spaces = 0;
-		} else {
-			while (*next != ' ' && *next != 0)
-				next++;
-			parsing_spaces = 1;
-		}
-		if (last == next)
+	while (1) {
+		switch (*next) {
+		case ' ':
+			category = 1;
 			break;
-		tok = (char *)malloc((next - last) + 1);
-		memcpy(tok, last, next - last);
-		tok[next - last] = 0;
-
-		len = next - last;
-		width = HPDF_Font_TextWidth(font, (const HPDF_BYTE*)tok, len);
-		real_width = ( width.width * state->current_font_size ) / 1000;
-		if (state->x + real_width > MARGIN_LEFT + state->indent +
-		    TEXT_WIDTH) {
-			state->x = MARGIN_LEFT + state->indent;
-			state->y -= (state->current_font_size + state->leading);
+		case '\n':
+			category = 2;
+			break;
+		case 0:
+			category = 0;
+			break;
+		default:
+			category = 3;
 		}
-		HPDF_Page_BeginText (state->page);
-		HPDF_Page_MoveTextPos(state->page, state->x, state->y);
-		HPDF_Page_ShowText(state->page, tok);
-		HPDF_Page_EndText (state->page);
-		state->x += real_width;
-		free(tok);
+		if (category != last_category && next > last_tok) {
+			// emit token from last_tok to next-1
+			tok = (char *)malloc((next - last_tok) + 1);
+			memcpy(tok, last_tok, next - last_tok);
+			tok[next - last_tok] = 0;
+			len = next - last_tok;
+			// printf("token: |%s| len %d\n", tok, len);
+			if (tok[0] == '\n') {
+				state->x = MARGIN_LEFT + state->indent;
+				state->y -= strlen(tok) * (state->current_font_size + state->leading);
+			} else {
+				width = HPDF_Font_TextWidth(font, (const HPDF_BYTE*)tok, len);
+				real_width = ( width.width * state->current_font_size ) / 1000;
+				if (wrap && state->x + real_width > MARGIN_LEFT + state->indent + TEXT_WIDTH) {
+					state->x = MARGIN_LEFT + state->indent;
+					state->y -= (state->current_font_size + state->leading);
+				}
+				if (state->y < HPDF_Page_GetHeight(state->page) -
+				    TEXT_HEIGHT) {
+					/* add a new page object. */
+					state->page = HPDF_AddPage (state->pdf);
+					HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
+					state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
+				}
+				HPDF_Page_BeginText (state->page);
+				HPDF_Page_MoveTextPos(state->page, state->x, state->y);
+				HPDF_Page_ShowText(state->page, tok);
+				HPDF_Page_EndText (state->page);
+				state->x += real_width;
+			}
+
+			last_tok = next;
+			free(tok);
+		}
+		if (*next == 0)
+			break;
+		last_category = category;
+		next++;
 	}
+
 }
 
 static void
@@ -178,6 +201,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		HPDF_Page_SetFontAndSize (state->page, state->tt_font, state->current_font_size);
 		render_text(state, state->tt_font, cmark_node_get_literal(node), 0);
 		HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
+		state->y -= (state->current_font_size + state->leading);
 		break;
 
 	case CMARK_NODE_HEADER:
@@ -209,17 +233,10 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		break;
 
 	case CMARK_NODE_SOFTBREAK:
-		state->x += (state->current_font_size / 6);
+		render_text(state, state->main_font, " ", 1);
 		break;
 
 	case CMARK_NODE_TEXT:
-		if (state->y < HPDF_Page_GetHeight(state->page) -
-		    TEXT_HEIGHT) {
-			/* add a new page object. */
-			state->page = HPDF_AddPage (state->pdf);
-			HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
-			state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
-		}
 		text = cmark_node_get_literal(node);
 		render_text(state, state->main_font, text, 1);
 		break;
