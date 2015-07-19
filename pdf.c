@@ -68,19 +68,28 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, int wr
 	float real_width;
 	char * tok;
 	int initial_space, final_space;
+	const char * last = text;
+	const char * next = text;
+	int parsing_spaces = text[0] == ' ' ? 1 : 0;
 
-	initial_space = text && text[0] == ' ';
-	final_space = text && text[strlen(text) - 1] == ' ';
+	while (last && *last != 0) {
+		last = next;
+		if (parsing_spaces) {
+			while (*next == ' ' && *next != 0)
+				next++;
+			parsing_spaces = 0;
+		} else {
+			while (*next != ' ' && *next != 0)
+				next++;
+			parsing_spaces = 1;
+		}
+		if (last == next)
+			break;
+		tok = (char *)malloc((next - last) + 1);
+		memcpy(tok, last, next - last);
+		tok[next - last] = 0;
 
-	if (initial_space) {
-		state->x += (state->current_font_size / 6);
-	}
-
-	tok = strtok((char *)text, wrap ? " " : "");
-
-	while (tok != NULL) {
-
-		len = strlen(tok);
+		len = next - last;
 		width = HPDF_Font_TextWidth(font, (const HPDF_BYTE*)tok, len);
 		real_width = ( width.width * state->current_font_size ) / 1000;
 		if (state->x + real_width > MARGIN_LEFT + state->indent +
@@ -93,15 +102,7 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, int wr
 		HPDF_Page_ShowText(state->page, tok);
 		HPDF_Page_EndText (state->page);
 		state->x += real_width;
-		tok = strtok(NULL, " ");
-		if (tok) {
-			state->x += (state->current_font_size / 6);
-		}
-
-	}
-
-	if (final_space) {
-		state->x += (state->current_font_size / 6);
+		free(tok);
 	}
 }
 
