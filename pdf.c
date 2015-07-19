@@ -208,6 +208,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	const char *main_font;
 	const char *tt_font;
 	struct text_box *box;
+	struct text_box *oldbox;
 
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
@@ -262,8 +263,13 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			box = state->text_list_bottom;
 			while (box) {
 				print_text_box(box);
+				oldbox = box;
 				box = box->next;
+				free(oldbox);
 			}
+			state->text_list_top = NULL;
+			state->text_list_bottom = NULL;
+
 		}
 		break;
 
