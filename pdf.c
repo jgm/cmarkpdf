@@ -97,6 +97,7 @@ struct render_state {
 	float indent;
 	float x;
 	float y;
+	float last_text_y;
 	box * boxes_bottom;
 	box * boxes_top;
 };
@@ -135,9 +136,6 @@ push_box(struct render_state *state,
 static void
 render_text(struct render_state *state, HPDF_Font font, const char *text, bool wrap)
 {
-	HPDF_TextWidth width;
-	int len;
-	float real_width;
 	char * tok;
 	const char * next = text;
 	const char * last_tok = text;
@@ -270,7 +268,7 @@ process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
 			state->boxes_bottom = tmp;
 		}
 
-		// reset to beginning of next line
+		state->last_text_y = state->y;
 		state->x = MARGIN_LEFT + state->indent;
 		state->y -= (state->current_font_size + state->leading);
 
@@ -283,10 +281,9 @@ process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
 static void
 parbreak(struct render_state *state)
 {
-	if (state->x > MARGIN_LEFT + state->indent) {
-		state->y -= (1.5 * (state->current_font_size + state->leading));
-		state->x = MARGIN_LEFT + state->indent;
-	}
+	state->y = state->last_text_y -
+		(1.5 * (state->current_font_size + state->leading));
+	state->x = MARGIN_LEFT + state->indent;
 }
 
 static int
@@ -296,7 +293,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	int entering = ev_type == CMARK_EVENT_ENTER;
 	const char *main_font;
 	const char *tt_font;
-	HPDF_TextWidth width;
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
 		if (entering) {
@@ -327,6 +323,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 
 			state->x = MARGIN_LEFT + state->indent;
 			state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
+			state->last_text_y = state->y;
 		}
 
 		break;
