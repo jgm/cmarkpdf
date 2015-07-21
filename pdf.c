@@ -24,8 +24,8 @@
 */
 
 
-#define MAIN_FONT_PATH "/Library/Fonts/Georgia.ttf"
-#define TT_FONT_PATH "/Library/Fonts/Andale Mono.ttf"
+// MAIN_FONT_PATH defined in Makefile
+// TT_FONT_PATH defined in Makefile
 #define MARGIN_TOP 80
 #define MARGIN_LEFT 80
 #define TEXT_WIDTH 420
