@@ -16,9 +16,8 @@
  * list markers for ordered lists (also should use different
    bullets for nested bullet lists)
  * images
- * make PDF searchable
- * make text copy-pasteable
- * outline levels for headings
+ * make PDF searchable and copy-pasteable
+   (I'm having the problem described here, https://groups.google.com/forum/#!searchin/libharu/copy$20paste/libharu/YzXoH_K3OAI/YNCsn6XXF-gJ)
 */
 
 
