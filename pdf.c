@@ -13,7 +13,7 @@
  * TODO
  * links
  * strong, emph
- * hrule
+ * block quotes
  * list markers for ordered lists (also should use different
    bullets for nested bullet lists)
  * images
@@ -345,6 +345,16 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		} else {
 			state->indent -= real_width;
 		}
+		break;
+
+	case CMARK_NODE_HRULE:
+		parbreak(state);
+		HPDF_Page_MoveTo(state->page, state->x, state->y + state->leading);
+		HPDF_Page_LineTo(state->page, state->x + (TEXT_WIDTH - (state->x - MARGIN_LEFT)), state->y + state->leading);
+		HPDF_Page_Stroke(state->page);
+		state->last_text_y = state->y;
+		state->y -= (state->current_font_size + state->leading);
+		state->x = MARGIN_LEFT + state->indent;
 		break;
 
 	case CMARK_NODE_PARAGRAPH:
