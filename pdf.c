@@ -67,6 +67,8 @@ struct box {
 
 typedef struct box box;
 
+/*
+// for diagnostics
 static void
 print_box(box * box)
 {
@@ -85,6 +87,7 @@ print_box(box * box)
 	}
 	printf("%5.2f|%s|\n", box->width, box->text);
 };
+*/
 
 struct render_state {
 	HPDF_Doc pdf;
@@ -245,14 +248,12 @@ process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
 		}
 
 		// emit line up to last_nonspace;
-		printf("Emitting line...\n");
 
 		// remove and free everything up to last_nonspace,
 		// plus any following spaces. reset boxes_bottom.
 		total_width = 0;
 		while (state->boxes_bottom &&
 		       (state->boxes_bottom != last_nonspace->next)) {
-			print_box(state->boxes_bottom);
 			render_box(state, state->boxes_bottom);
 			tmp = state->boxes_bottom->next;
 			// free((char *)state->boxes_bottom->text);
