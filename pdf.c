@@ -120,7 +120,7 @@ push_box(struct render_state *state,
 	new->width = ( width.width * state->current_font_size ) / 1000;
 	if (new->type == SPACE) {
 		// spaces have minimum width reduced to aid justification
-		new->width *= 0.75;
+		new->width -= (state->current_font_size / 10);
 	}
 	new->next = NULL;
 	if (state->boxes_top != NULL) {
@@ -230,8 +230,8 @@ process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
 		if (b && wrap) {
 			line_end_space = max_width - total_width;
 			extra_space_width = (line_end_space / numspaces_to_last_nonspace);
-		} else {
-			extra_space_width = 0;
+		} else { // last line
+			extra_space_width = state->current_font_size / 10;
 		}
 
 		tmp = state->boxes_bottom;
