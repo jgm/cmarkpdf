@@ -109,8 +109,7 @@ push_box(struct render_state *state,
 	 HPDF_Font font)
 {
 	HPDF_TextWidth width;
-	box * new =
-		(box*)malloc(sizeof(box));
+	box * new = (box*)malloc(sizeof(box));
 	if (new == NULL)
 		return;
 	new->type = type;
@@ -182,9 +181,9 @@ render_box(struct render_state *state, box * b)
 	    TEXT_HEIGHT) {
 		/* add a new page object. */
 		state->page = HPDF_AddPage (state->pdf);
-		HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
 		state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
 	}
+	HPDF_Page_SetFontAndSize (state->page, b->font, state->current_font_size);
 	if (b->type == SPACE) {
 		state->x += b->width;
 	} else {
