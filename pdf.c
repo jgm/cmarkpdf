@@ -266,6 +266,13 @@ process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
 			free(state->boxes_bottom);
 			state->boxes_bottom = tmp;
 		}
+		//gobble at most one BREAK
+		if (state->boxes_bottom && state->boxes_bottom->type == BREAK) {
+			tmp = state->boxes_bottom->next;
+			// free(state->boxes_bottom->text);
+			free(state->boxes_bottom);
+			state->boxes_bottom = tmp;
+		}
 
 		state->last_text_y = state->y;
 		state->x = MARGIN_LEFT + state->indent;
@@ -351,9 +358,8 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 
 	case CMARK_NODE_CODE_BLOCK:
 		parbreak(state);
-		HPDF_Page_SetFontAndSize (state->page, state->tt_font, state->current_font_size);
-		// render_text(state, state->tt_font, cmark_node_get_literal(node), false);
-		// process_boxes(state, state->tt_font, false);
+		render_text(state, state->tt_font, cmark_node_get_literal(node), false);
+		process_boxes(state, state->tt_font, false);
 		HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
 		state->y -= (state->current_font_size + state->leading);
 		break;
