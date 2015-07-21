@@ -18,6 +18,9 @@
  * images
  * make PDF searchable and copy-pasteable
    (I'm having the problem described here, https://groups.google.com/forum/#!searchin/libharu/copy$20paste/libharu/YzXoH_K3OAI/YNCsn6XXF-gJ)
+  note also http://superuser.com/questions/137824/pdf-has-garbled-text-when-copy-pasting
+  I only have the problem in PReview, not in Adobe Reader or Chrome's PDF viewer.
+  So it may be a Preview issue.
 */
 
 
