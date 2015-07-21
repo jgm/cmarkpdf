@@ -16,6 +16,9 @@
  * list markers for ordered lists (also should use different
    bullets for nested bullet lists)
  * images
+ * make PDF searchable
+ * make text copy-pasteable
+ * outline levels for headings
 */
 
 
