@@ -123,7 +123,7 @@ push_box(struct render_state *state,
 	new->width = ( width.width * state->current_font_size ) / 1000;
 	if (new->type == SPACE) {
 		// spaces have minimum width reduced to aid justification
-		new->width -= (state->current_font_size / 10);
+		new->width -= (state->current_font_size / 16);
 	}
 	new->next = NULL;
 	if (state->boxes_top != NULL) {
