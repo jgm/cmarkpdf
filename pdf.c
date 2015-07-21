@@ -11,19 +11,12 @@
 
 /*
  * TODO
- * For a better approach, have the inline renderers add to a list
- * of InlineElements.  Each of these has full information about
- * text content (which might be a space), minimum width,
- * hyperlink destination,
- * image information.
- * Also "command directives" like "turn on bold" or
- * "turn off italic."
- * Regular spaces and hard breaks will also be InlineElements.
- * Then have a routine that renders a list of these, splitting
- * them intelligently into lines (Knuth/Prass or something simpler).
- * Start by implementing this for regular TEXT, CODE, LINE_BREAK,
- * SOFT_BREAK, and spaces. Note that the renderer for TEXT will
- * have to break on spaces and insert appropriate space elements.
+ * links
+ * strong, emph
+ * hrule
+ * list markers for ordered lists (also should use different
+   bullets for nested bullet lists)
+ * images
 */
 
 
