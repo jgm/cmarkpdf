@@ -300,6 +300,9 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	int entering = ev_type == CMARK_EVENT_ENTER;
 	const char *main_font;
 	const char *tt_font;
+	HPDF_TextWidth width;
+	float real_width;
+
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
 		if (entering) {
@@ -336,16 +339,18 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		break;
 
 	case CMARK_NODE_ITEM:
+		width = HPDF_Font_TextWidth(state->main_font, (HPDF_BYTE*)"\xE2\x80\xA2  ", 5);
+		real_width = ( width.width * state->current_font_size ) / 1000;
 		if (entering) {
 			parbreak(state);
 			HPDF_Page_BeginText (state->page);
 			HPDF_Page_MoveTextPos(state->page, state->x, state->y);
-			HPDF_Page_ShowText(state->page, "-");
+			HPDF_Page_ShowText(state->page, "\xE2\x80\xA2  ");
 			HPDF_Page_EndText (state->page);
-			state->indent += 24;
+			state->indent += real_width;
 			state->x = MARGIN_LEFT + state->indent;
 		} else {
-			state->indent -= 24;
+			state->indent -= real_width;
 		}
 		break;
 
