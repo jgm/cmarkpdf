@@ -13,7 +13,6 @@
  * TODO
  * links
  * strong, emph
- * block quotes
  * list markers for ordered lists (also should use different
    bullets for nested bullet lists)
  * images
@@ -355,6 +354,15 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		state->last_text_y = state->y;
 		state->y -= (state->current_font_size + state->leading);
 		state->x = MARGIN_LEFT + state->indent;
+		break;
+
+	case CMARK_NODE_BLOCK_QUOTE:
+		if (entering) {
+			// TODO also change font size, right indent?
+			state->indent += state->current_font_size * 2;
+		} else {
+			state->indent -= state->current_font_size * 2;
+		}
 		break;
 
 	case CMARK_NODE_PARAGRAPH:
