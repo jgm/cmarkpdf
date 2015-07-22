@@ -51,9 +51,11 @@ struct box {
 	enum box_type type;
 	const char * text;
 	int len;
-	HPDF_Font font;
 	float width;
 	struct box * next;
+	bool bold;
+	bool italic;
+	bool monospace;
 };
 
 typedef struct box box;
@@ -101,20 +103,27 @@ static int
 push_box(struct render_state *state,
 	 enum box_type type,
 	 const char * text,
-	 HPDF_Font font)
+	 bool monospace,
+	 bool bold,
+	 bool italic)
 {
 	HPDF_TextWidth width;
+	HPDF_Font font;
+
+	font = monospace ? state->tt_font : state->main_font;
 	box * new = (box*)malloc(sizeof(box));
+	new->monospace = monospace;
+	new->bold = bold;
+	new->italic = italic;
 	if (new == NULL) {
 		err("Could not allocate box");
 	}
 	new->type = type;
 	new->text = text;
 	new->len = text ? strlen(text) : 0;
-	new->font = font;
 	if (new->type == SPACE) {
 		width = HPDF_Font_TextWidth(font, (HPDF_BYTE*)"i", 1);
-		if (font != state->tt_font) {
+		if (!monospace) {
 			width.width *= 0.67;
 		}
 	} else {
@@ -133,7 +142,8 @@ push_box(struct render_state *state,
 }
 
 static int
-render_text(struct render_state *state, HPDF_Font font, const char *text, bool wrap)
+render_text(struct render_state *state, const char *text, bool wrap,
+	    bool monospace, bool bold, bool italic)
 {
 	char * tok;
 	const char * next = text;
@@ -167,7 +177,8 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, bool w
 			last_tok = next;
 			status = push_box(state, tok[0] == ' ' ?
 				      SPACE : (tok[0] == '\n' ?
-					       BREAK : TEXT), tok, font);
+					       BREAK : TEXT), tok,
+					  monospace, bold, italic);
 			if (status == STATUS_ERR) {
 				return STATUS_ERR;
 			}
@@ -202,12 +213,15 @@ static int
 render_box(struct render_state *state, box * b)
 {
 	int status;
+	HPDF_Font font;
+
+	font = b->monospace ? state->tt_font : state->main_font;
 
 	status = add_page_if_needed(state);
 	if (status == STATUS_ERR) {
 		return status;
 	}
-	HPDF_Page_SetFontAndSize (state->page, b->font, state->current_font_size);
+	HPDF_Page_SetFontAndSize (state->page, font, state->current_font_size);
 	if (b->type == SPACE) {
 		state->x += b->width;
 	} else {
@@ -221,7 +235,7 @@ render_box(struct render_state *state, box * b)
 }
 
 static void
-process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
+process_boxes(struct render_state *state, bool wrap)
 {
 	box *b;
 	box *tmp;
@@ -446,17 +460,17 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		if (entering) {
 			parbreak(state);
 		} else {
-			process_boxes(state, state->main_font, true);
+			process_boxes(state, true);
 		}
 		break;
 
 	case CMARK_NODE_CODE_BLOCK:
 		parbreak(state);
-		status = render_text(state, state->tt_font, cmark_node_get_literal(node), false);
+		status = render_text(state, cmark_node_get_literal(node), false, true, false, false);
 		if (status == STATUS_ERR) {
 			return STATUS_ERR;
 		}
-		process_boxes(state, state->tt_font, false);
+		process_boxes(state, false);
 		HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
 		state->y -= (state->current_font_size + state->leading);
 		return STATUS_OK;
@@ -470,7 +484,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 						  state->current_font_size);
 			parbreak(state);
 		} else {
-			process_boxes(state, state->main_font, true);
+			process_boxes(state, true);
 			state->y -= (0.3 * (state->current_font_size + state->leading));
 			state->current_font_size = state->base_font_size;
 			HPDF_Page_SetFontAndSize (state->page,
@@ -480,16 +494,16 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		break;
 
 	case CMARK_NODE_CODE:
-		return render_text(state, state->tt_font, cmark_node_get_literal(node), false);
+		return render_text(state, cmark_node_get_literal(node), false, true, false, false);
 
 	case CMARK_NODE_SOFTBREAK:
-		return push_box(state, SPACE, NULL, state->main_font);
+		return push_box(state, SPACE, NULL, false, false, false);
 
 	case CMARK_NODE_LINEBREAK:
-		return push_box(state, BREAK, NULL, state->main_font);
+		return push_box(state, BREAK, NULL, false, false, false);
 
 	case CMARK_NODE_TEXT:
-		return render_text(state, state->main_font, cmark_node_get_literal(node), true);
+		return render_text(state, cmark_node_get_literal(node), true, false, false, false);
 
 	default:
 		break;
