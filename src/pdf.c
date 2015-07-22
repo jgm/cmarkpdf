@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #include <assert.h>
 #include <stdbool.h>
 #include <cmark.h>
 #include "cmarkpdf.h"
 #include <math.h>
-#include <setjmp.h>
 #include "hpdf.h"
 
 
@@ -17,8 +17,6 @@
 #define TEXT_WIDTH 420
 #define TEXT_HEIGHT 760
 
-jmp_buf env;
-
 #ifdef HPDF_DLL
 void  __stdcall
 #else
@@ -28,10 +26,12 @@ error_handler (HPDF_STATUS   error_no,
                HPDF_STATUS   detail_no,
                void         *user_data)
 {
-    printf ("ERROR: error_no=%04X, detail_no=%u\n", (HPDF_UINT)error_no,
-                (HPDF_UINT)detail_no);
-    longjmp(env, 1);
+    printf ("ERROR: error_no=%04X, detail_no=%u\n",
+	    (HPDF_UINT)error_no, (HPDF_UINT)detail_no);
 }
+
+#define die(fmt, args) \
+  fprintf(stderr, fmt, args); fprintf(stderr, "\n"); exit(1);
 
 enum box_type {
 	TEXT,
@@ -307,6 +307,10 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			main_font = HPDF_LoadTTFontFromFile(state->pdf,
 							   MAIN_FONT_PATH,
 							   HPDF_TRUE);
+			if (!main_font) {
+				die("Could not load main font '%s'",
+				    MAIN_FONT_PATH);
+			}
 			state->main_font = HPDF_GetFont (state->pdf,
 							 main_font,
 							 "UTF-8");
@@ -314,6 +318,10 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			tt_font = HPDF_LoadTTFontFromFile(state->pdf,
 							   TT_FONT_PATH,
 							   HPDF_TRUE);
+			if (!tt_font) {
+				die("Could not load monospace font '%s'",
+				    TT_FONT_PATH);
+			}
 			state->tt_font = HPDF_GetFont (state->pdf,
 						       tt_font,
 						       "UTF-8");
@@ -421,6 +429,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	return 1;
 }
 
+// Returns 1 on success, 0 on failure.
 int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 {
 	struct render_state state = { };
@@ -437,11 +446,6 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 		return 1;
 	};
 
-	if (setjmp(env)) {
-		HPDF_Free(state.pdf);
-		return 1;
-	}
-
 	/* set compression mode */
 	HPDF_SetCompressionMode (state.pdf, HPDF_COMP_ALL);
 
@@ -449,20 +453,25 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 	cmark_event_type ev_type;
 	cmark_node *cur;
 	cmark_iter *iter = cmark_iter_new(root);
+	int ok = 1;
 
 	while ((ev_type = cmark_iter_next(iter)) != CMARK_EVENT_DONE) {
 		cur = cmark_iter_get_node(iter);
-		S_render_node(cur, ev_type, &state, options);
+		ok = S_render_node(cur, ev_type, &state, options);
+		if (!ok) {
+			break;
+		}
 	}
 
 	cmark_iter_free(iter);
 
-	/* save the document to a file */
-	HPDF_SaveToFile (state.pdf, outfile);
+	if (ok) {
+		/* save the document to a file */
+		HPDF_SaveToFile (state.pdf, outfile);
+	}
 
 	/* clean up */
 	HPDF_Free (state.pdf);
 
-
-	return 0;
+	return ok;
 }

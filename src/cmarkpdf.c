@@ -36,6 +36,7 @@ int main(int argc, char *argv[])
 {
 	int i, numfps = 0;
 	int *files;
+	int ok;
 	char buffer[4096];
 	cmark_parser *parser;
 	size_t bytes;
@@ -124,9 +125,9 @@ int main(int argc, char *argv[])
 
 	print_document(document, outfile, options, width);
 
-	cmark_node_free(document);
+	ok = cmark_render_pdf(document, options, outfile);
 
 	free(files);
 
-	return 0;
+	return ok ? 0 : 1;
 }

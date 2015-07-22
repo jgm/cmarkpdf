@@ -40,7 +40,7 @@ Roadmap
 - [ ] Images
 - [ ] Strong
 - [ ] Emph
-- [ ] Better error handling (e.g. when a font file is missing)
+- [ ] Better error handling (check status of every function)
 - [ ] Customizability (e.g. selecting fonts, margins, sizes)
 - [ ] Ensure that PDF is searchable and copy-pasteable.
       Currently the PDFs work well is some viewers (e.g. Chrome's or
