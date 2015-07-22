@@ -11,14 +11,25 @@
 
 #if defined _LINUX
 #define FONT_PATH "/usr/share/fonts/truetype/dejavu/"
-#define MAIN_FONT "DejaVuSerif.ttf"
-#define TT_FONT "DejaVuSansMono.ttf"
+#define MAIN_FONT "DejaVuSerif"
+#define MAIN_FONT_B  MAIN_FONT "-Bold"
+#define MAIN_FONT_I  MAIN_FONT "-Italic"
+#define MAIN_FONT_BI MAIN_FONT "-BoldItalic"
+#define TT_FONT "DejaVuSansMono"
+#define TT_FONT_B  MAIN_FONT "-Bold"
+#define TT_FONT_I  MAIN_FONT "-Oblique"
+#define TT_FONT_BI MAIN_FONT "-BoldOblique"
 
 #elif defined _OSX
 #define FONT_PATH "/Library/Fonts/"
-#define MAIN_FONT "Georgia.ttf"
-#define TT_FONT "Andale Mono.ttf"
-
+#define MAIN_FONT "Georgia"
+#define MAIN_FONT_B  MAIN_FONT "-Bold"
+#define MAIN_FONT_I  MAIN_FONT "-Italic"
+#define MAIN_FONT_BI MAIN_FONT "-BoldItalic"
+#define TT_FONT "Andale Mono"
+#define TT_FONT_B  TT_FONT "-Bold"
+#define TT_FONT_I  TT_FONT "-Italic"
+#define TT_FONT_BI TT_FONT "-BoldItalic"
 #endif
 
 #define MARGIN_TOP 80
@@ -93,7 +104,7 @@ print_box(box * box)
 
 struct render_state {
 	HPDF_Doc pdf;
-	HPDF_Font fonts[2][2][2];
+	HPDF_Font fonts[2][2][2];  // [monospace][bold][italic]
 	HPDF_REAL base_font_size;
 	HPDF_REAL current_font_size;
 	HPDF_REAL leading;
@@ -118,7 +129,8 @@ push_box(struct render_state *state,
 	HPDF_TextWidth width;
 	HPDF_Font font;
 
-	font = monospace ? state->fonts[1][0][0] : state->fonts[0][0][0];
+	font = state->fonts[monospace][bold][italic];
+
 	box * new = (box*)malloc(sizeof(box));
 	new->monospace = monospace;
 	new->bold = bold;
@@ -212,7 +224,9 @@ add_page_if_needed(struct render_state *state)
 		state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
 		state->x = MARGIN_LEFT + state->indent;
 		state->last_text_y = state->y;
-		HPDF_Page_SetFontAndSize (state->page, state->fonts[0][0][0], state->current_font_size);
+		HPDF_Page_SetFontAndSize (state->page,
+					  state->fonts[false][false][false],
+					  state->current_font_size);
 	}
 	return STATUS_OK;
 }
@@ -223,7 +237,7 @@ render_box(struct render_state *state, box * b)
 	int status;
 	HPDF_Font font;
 
-	font = b->monospace ? state->fonts[1][0][0] : state->fonts[0][0][0];
+	font = state->fonts[b->monospace][b->bold][b->italic];
 
 	status = add_page_if_needed(state);
 	if (status == STATUS_ERR) {
@@ -353,8 +367,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 {
 	int status;
 	int entering = ev_type == CMARK_EVENT_ENTER;
-	const char *main_font;
-	const char *tt_font;
 	float real_width;
 	char * bullets[] = {"\xE2\x97\xA6",
 			    "\xE2\x80\xA2"};
@@ -364,47 +376,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
-		if (entering) {
-			state->base_font_size = 10;
-			state->current_font_size = 10;
-			state->leading = 4;
-			state->indent = 0;
-			state->boxes_bottom = NULL;
-			state->boxes_top = NULL;
-			state->list_indent_level = 0;
-
-			main_font = HPDF_LoadTTFontFromFile(state->pdf,
-							   FONT_PATH MAIN_FONT,
-							   HPDF_TRUE);
-			if (!main_font) {
-				errf("Could not load main font '%s'",
-				    FONT_PATH MAIN_FONT);
-			}
-			state->fonts[0][0][0] = HPDF_GetFont (state->pdf,
-							 main_font,
-							 "UTF-8");
-			if (!state->fonts[0][0][0]) {
-				errf("Could not get main font '%s'",
-				    main_font);
-			}
-
-			tt_font = HPDF_LoadTTFontFromFile(state->pdf,
-							   FONT_PATH TT_FONT,
-							   HPDF_TRUE);
-			if (!tt_font) {
-				errf("Could not load monospace font '%s'",
-				    FONT_PATH TT_FONT);
-			}
-			state->fonts[1][0][0] = HPDF_GetFont (state->pdf,
-						       tt_font,
-						       "UTF-8");
-			if (!state->fonts[1][0][0]) {
-				errf("Could not get monospace font '%s'",
-				    tt_font);
-			}
-
-		}
-
 		break;
 
 	case CMARK_NODE_ITEM:
@@ -422,7 +393,9 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 				len = strlen(marker);
 			}
 			parbreak(state);
-			HPDF_Page_SetFontAndSize (state->page, state->fonts[0][0][0], state->current_font_size);
+			HPDF_Page_SetFontAndSize (state->page,
+						  state->fonts[false][false][false],
+						  state->current_font_size);
 			HPDF_Page_BeginText (state->page);
 			HPDF_Page_MoveTextPos(state->page, state->x, state->y);
 			HPDF_Page_ShowText(state->page, marker);
@@ -510,13 +483,37 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	return STATUS_OK;
 }
 
+static int
+load_font(struct render_state *state,
+	  bool monospace,
+	  bool bold,
+	  bool italic,
+	  char *path)
+{
+	const char * fontname;
+
+	fontname = HPDF_LoadTTFontFromFile(state->pdf, path, HPDF_TRUE);
+	if (!fontname) {
+		errf("Could not load main font '%s'", path);
+	}
+
+	state->fonts[monospace][bold][italic] = HPDF_GetFont (state->pdf,
+							      fontname,
+							      "UTF-8");
+	if (!state->fonts[monospace][bold][italic]) {
+		errf("Could not get font '%s'", fontname);
+	}
+
+	return STATUS_OK;
+}
+
+
 // Returns 1 on success, 0 on failure.
 int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 {
 	struct render_state state = { };
 
 	state.pdf = HPDF_New (error_handler, NULL);
-
 	if (!state.pdf) {
 		err("Cannot create PdfDoc object");
 	}
@@ -528,6 +525,16 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 	/* set compression mode */
 	HPDF_SetCompressionMode (state.pdf, HPDF_COMP_ALL);
 
+	state.base_font_size = 10;
+	state.current_font_size = 10;
+	state.leading = 4;
+	state.indent = 0;
+	state.boxes_bottom = NULL;
+	state.boxes_top = NULL;
+	state.list_indent_level = 0;
+
+	load_font(&state, false, false, false, FONT_PATH MAIN_FONT ".ttf");
+	load_font(&state, true, false, false, FONT_PATH TT_FONT ".ttf");
 
 	cmark_event_type ev_type;
 	cmark_node *cur;
