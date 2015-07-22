@@ -241,21 +241,21 @@ process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
 			render_box(state, state->boxes_bottom);
 			tmp = state->boxes_bottom;
 			state->boxes_bottom = state->boxes_bottom->next;
-			// free(tmp->text);
+			// free((char*)tmp->text);
 			free(tmp);
 		}
 		//gobble spaces
 		while (state->boxes_bottom && state->boxes_bottom->type == SPACE) {
 			tmp = state->boxes_bottom;
 			state->boxes_bottom = state->boxes_bottom->next;
-			// free(tmp->text);
+			// free((char*)tmp->text);
 			free(tmp);
 		}
 		//gobble at most one BREAK
 		if (state->boxes_bottom && state->boxes_bottom->type == BREAK) {
 			tmp = state->boxes_bottom;
 			state->boxes_bottom = state->boxes_bottom->next;
-			// free(tmp->text);
+			// free((char*)tmp->text);
 			free(tmp);
 		}
 
