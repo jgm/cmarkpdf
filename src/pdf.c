@@ -30,8 +30,10 @@ error_handler (HPDF_STATUS   error_no,
 	    (HPDF_UINT)error_no, (HPDF_UINT)detail_no);
 }
 
-#define die(fmt, args) \
-  fprintf(stderr, fmt, args); fprintf(stderr, "\n"); exit(1);
+#define err(fmt, args) \
+	fprintf(stderr, "ERROR (%s:%d): ", __FILE__, __LINE__); \
+	fprintf(stderr, fmt, args); \
+	fprintf(stderr, "\n");
 
 enum box_type {
 	TEXT,
@@ -308,23 +310,35 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 							   MAIN_FONT_PATH,
 							   HPDF_TRUE);
 			if (!main_font) {
-				die("Could not load main font '%s'",
+				err("Could not load main font '%s'",
 				    MAIN_FONT_PATH);
+				return 1;
 			}
 			state->main_font = HPDF_GetFont (state->pdf,
 							 main_font,
 							 "UTF-8");
+			if (!state->tt_font) {
+				err("Could not get main font '%s'",
+				    main_font);
+				return 1;
+			}
 
 			tt_font = HPDF_LoadTTFontFromFile(state->pdf,
 							   TT_FONT_PATH,
 							   HPDF_TRUE);
 			if (!tt_font) {
-				die("Could not load monospace font '%s'",
+				err("Could not load monospace font '%s'",
 				    TT_FONT_PATH);
+				return 1;
 			}
 			state->tt_font = HPDF_GetFont (state->pdf,
 						       tt_font,
 						       "UTF-8");
+			if (!state->tt_font) {
+				err("Could not get monospace font '%s'",
+				    tt_font);
+				return 1;
+			}
 
 			/* add a new page object. */
 			state->page = HPDF_AddPage (state->pdf);
@@ -437,12 +451,12 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 	state.pdf = HPDF_New (error_handler, NULL);
 
 	if (!state.pdf) {
-		printf ("error: cannot create PdfDoc object\n");
+		err("Cannot create PdfDoc object", NULL);
 		return 1;
 	}
 
 	if (HPDF_UseUTFEncodings(state.pdf) != HPDF_OK) {
-		printf ("error: cannot set UTF-8 encoding\n");
+		err("Cannot set UTF-8 encoding", NULL);
 		return 1;
 	};
 
