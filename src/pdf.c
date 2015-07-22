@@ -333,6 +333,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			    "\xE2\x80\xA2"};
 	char * marker;
 	size_t len;
+	cmark_node * parent;
 
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
@@ -380,17 +381,22 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		break;
 
 	case CMARK_NODE_ITEM:
+		parent = cmark_node_parent(node);
 		real_width = state->current_font_size *
-			(cmark_node_get_list_type(node) == CMARK_BULLET_LIST ?
-			 1.5 : 2.5);
+			(cmark_node_get_list_type(parent) == CMARK_BULLET_LIST ?
+			 1.5 : 3);
 		if (entering) {
 			len = strlen(bullets[state->list_indent_level % 2]);
 			marker = (char *)malloc(len + 1);
 			if (marker == NULL) {
 				err("Could not allocate marker", NULL);
 			}
-			memcpy(marker, bullets[state->list_indent_level % 2], len);
-			marker[len] = 0;
+			if (cmark_node_get_list_type(parent) == CMARK_BULLET_LIST) {
+				memcpy(marker, bullets[state->list_indent_level % 2], len);
+				marker[len] = 0;
+			} else {
+				sprintf(marker, "%4d.", cmark_node_get_list_start(parent));
+			}
 			parbreak(state);
 			HPDF_Page_BeginText (state->page);
 			HPDF_Page_MoveTextPos(state->page, state->x, state->y);

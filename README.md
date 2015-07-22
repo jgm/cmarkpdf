@@ -29,7 +29,7 @@ Roadmap
 - [x] List items (currently all treated as bulleted).
 - [x] Bullet lists should use different bullets at different
       indent level.
-- [ ] Proper list markers for ordered lists
+- [x] Proper list markers for ordered lists
 - [x] Code spans
 - [x] Code blocks
 - [x] Block quotes
