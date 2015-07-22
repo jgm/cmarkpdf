@@ -317,7 +317,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			state->main_font = HPDF_GetFont (state->pdf,
 							 main_font,
 							 "UTF-8");
-			if (!state->tt_font) {
+			if (!state->main_font) {
 				err("Could not get main font '%s'",
 				    main_font);
 				return 1;
@@ -481,7 +481,10 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 
 	if (ok) {
 		/* save the document to a file */
-		HPDF_SaveToFile (state.pdf, outfile);
+		if (HPDF_SaveToFile (state.pdf, outfile) != HPDF_OK) {
+			err("Could not save PDF to file '%s'", outfile);
+			ok = 0;
+		}
 	}
 
 	/* clean up */
