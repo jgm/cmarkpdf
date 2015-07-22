@@ -441,7 +441,8 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		return render_text(state, state->main_font, cmark_node_get_literal(node), true);
 
 	default:
-		err("Unknown node type %d", cmark_node_get_type(node));
+		fprintf(stderr, "Unknown node type %d\n", cmark_node_get_type(node));
+		break;
 	}
 
 	return STATUS_OK;
@@ -474,7 +475,7 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 	while ((ev_type = cmark_iter_next(iter)) != CMARK_EVENT_DONE) {
 		cur = cmark_iter_get_node(iter);
 		status = S_render_node(cur, ev_type, &state, options);
-		if (status == STATUS_OK) {
+		if (status == STATUS_ERR) {
 			break;
 		}
 	}
