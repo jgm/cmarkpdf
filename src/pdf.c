@@ -150,7 +150,6 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, bool w
 			push_box(state, tok[0] == ' ' ?
 				      SPACE : (tok[0] == '\n' ?
 					       BREAK : TEXT), tok, font);
-			// free(tok);
 		}
 		if (*next == 0)
 			break;
