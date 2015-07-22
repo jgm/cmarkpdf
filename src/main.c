@@ -118,6 +118,7 @@ int main(int argc, char *argv[])
 	ok = cmark_render_pdf(document, options, outfile);
 
 	free(files);
+	cmark_node_free(document);
 
 	return ok ? 0 : 1;
 }
