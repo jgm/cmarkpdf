@@ -1,5 +1,3 @@
-DEMOS=text_demo text_demo2
-
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
   CCFLAGS += -D MAIN_FONT_PATH='"/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"' \
@@ -12,19 +10,13 @@ endif
 
 .PHONY: all clean
 
-all: cmarkpdf $(DEMOS)
+all: cmarkpdf
 
 %.o: %.c
 	$(CC) -Wall -c $< -o $@ $(CCFLAGS)
-
-text_demo: text_demo.o
-	$(CC) -Wall $^ -o $@ -lhpdf -lm
-
-text_demo2: text_demo2.o
-	$(CC) -Wall $^ -o $@ -lhpdf -lm
 
 cmarkpdf: cmarkpdf.o pdf.o
 	$(CC) $^ -o $@ $(CCFLAGS) -lhpdf -lcmark
 
 clean:
-	-rm *.pdf *.o cmarkpdf $(DEMOS)
+	-rm *.pdf *.o cmarkpdf
