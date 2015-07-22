@@ -40,6 +40,10 @@
 #define STATUS_OK 1
 #define STATUS_ERR 0
 
+#define MONOSPACE 1
+#define BOLD 2
+#define ITALIC 4
+
 #define errf(fmt, args) \
 	fprintf(stderr, "ERROR (%s:%d): ", __FILE__, __LINE__); \
 	fprintf(stderr, fmt, args); \
@@ -73,9 +77,7 @@ struct box {
 	int len;
 	float width;
 	struct box * next;
-	bool bold;
-	bool italic;
-	bool monospace;
+	int style;
 };
 
 typedef struct box box;
@@ -98,14 +100,14 @@ print_box(box * box)
 	default:
 		break;
 	}
-	printf("%5.2f|%s|\n", box->width, box->text);
+	printf("%5.2f|%2x|%s|\n", box->width, box->style, box->text);
 };
 */
 
 struct render_state {
 	HPDF_Doc pdf;
-	const char* font_paths[2][2][2];
-	HPDF_Font fonts[2][2][2];  // [monospace][bold][italic]
+	const char* font_paths[8];
+	HPDF_Font fonts[8];
 	HPDF_REAL base_font_size;
 	HPDF_REAL current_font_size;
 	HPDF_REAL leading;
@@ -117,18 +119,22 @@ struct render_state {
 	box * boxes_bottom;
 	box * boxes_top;
 	int list_indent_level;
+	int style;
 };
 
+// lazily load font
 static int
 load_font(struct render_state *state,
-	  bool monospace,
-	  bool bold,
-	  bool italic)
+	  int style)
 {
 	const char * fontname;
 	const char * path;
 
-	path = state->font_paths[monospace][bold][italic];
+	if (state->fonts[style]) {
+		return STATUS_OK;
+	}
+
+	path = state->font_paths[style];
 
 	fontname = HPDF_LoadTTFontFromFile(state->pdf,
 					   path,
@@ -137,10 +143,8 @@ load_font(struct render_state *state,
 		errf("Could not load main font '%s'", path);
 	}
 
-	state->fonts[monospace][bold][italic] = HPDF_GetFont (state->pdf,
-							      fontname,
-							      "UTF-8");
-	if (!state->fonts[monospace][bold][italic]) {
+	state->fonts[style] = HPDF_GetFont (state->pdf, fontname, "UTF-8");
+	if (!state->fonts[style]) {
 		errf("Could not get font '%s'", fontname);
 	}
 
@@ -151,19 +155,18 @@ static int
 push_box(struct render_state *state,
 	 enum box_type type,
 	 const char * text,
-	 bool monospace,
-	 bool bold,
-	 bool italic)
+	 int style)
 {
 	HPDF_TextWidth width;
 	HPDF_Font font;
 
-	font = state->fonts[monospace][bold][italic];
+	if (load_font(state, style) == STATUS_ERR) {
+		return STATUS_ERR;
+	}
+	font = state->fonts[style];
 
 	box * new = (box*)malloc(sizeof(box));
-	new->monospace = monospace;
-	new->bold = bold;
-	new->italic = italic;
+	new->style = style;
 	if (new == NULL) {
 		err("Could not allocate box");
 	}
@@ -172,7 +175,7 @@ push_box(struct render_state *state,
 	new->len = text ? strlen(text) : 0;
 	if (new->type == SPACE) {
 		width = HPDF_Font_TextWidth(font, (HPDF_BYTE*)"i", 1);
-		if (!monospace) {
+		if (!(style & MONOSPACE)) {
 			width.width *= 0.67;
 		}
 	} else {
@@ -191,8 +194,7 @@ push_box(struct render_state *state,
 }
 
 static int
-render_text(struct render_state *state, const char *text, bool wrap,
-	    bool monospace, bool bold, bool italic)
+render_text(struct render_state *state, const char *text, bool wrap, int style)
 {
 	char * tok;
 	const char * next = text;
@@ -227,7 +229,7 @@ render_text(struct render_state *state, const char *text, bool wrap,
 			status = push_box(state, tok[0] == ' ' ?
 				      SPACE : (tok[0] == '\n' ?
 					       BREAK : TEXT), tok,
-					  monospace, bold, italic);
+					  style);
 			if (status == STATUS_ERR) {
 				return STATUS_ERR;
 			}
@@ -254,7 +256,7 @@ add_page_if_needed(struct render_state *state)
 		state->x = MARGIN_LEFT + state->indent;
 		state->last_text_y = state->y;
 		HPDF_Page_SetFontAndSize (state->page,
-					  state->fonts[false][false][false],
+					  state->fonts[0],
 					  state->current_font_size);
 	}
 	return STATUS_OK;
@@ -267,12 +269,10 @@ render_box(struct render_state *state, box * b)
 	HPDF_Font font;
 
 	// lazily load fonts as needed
-	if (state->fonts[b->monospace][b->bold][b->italic] == NULL) {
-		if (load_font(state, b->monospace, b->bold, b->italic) == STATUS_ERR) {
-			return STATUS_ERR;
-		}
+	if (load_font(state, b->style) == STATUS_ERR) {
+		return STATUS_ERR;
 	}
-	font = state->fonts[b->monospace][b->bold][b->italic];
+	font = state->fonts[b->style];
 
 	status = add_page_if_needed(state);
 	if (status == STATUS_ERR) {
@@ -429,7 +429,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			}
 			parbreak(state);
 			HPDF_Page_SetFontAndSize (state->page,
-						  state->fonts[false][false][false],
+						  state->fonts[0],
 						  state->current_font_size);
 			HPDF_Page_BeginText (state->page);
 			HPDF_Page_MoveTextPos(state->page, state->x, state->y);
@@ -479,7 +479,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 
 	case CMARK_NODE_CODE_BLOCK:
 		parbreak(state);
-		status = render_text(state, cmark_node_get_literal(node), false, true, false, false);
+		status = render_text(state, cmark_node_get_literal(node), false, state->style | MONOSPACE);
 		if (status == STATUS_ERR) {
 			return STATUS_ERR;
 		}
@@ -500,16 +500,32 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		break;
 
 	case CMARK_NODE_CODE:
-		return render_text(state, cmark_node_get_literal(node), false, true, false, false);
+		return render_text(state, cmark_node_get_literal(node), true, state->style | MONOSPACE);
 
 	case CMARK_NODE_SOFTBREAK:
-		return push_box(state, SPACE, NULL, false, false, false);
+		return push_box(state, SPACE, NULL, 0);
 
 	case CMARK_NODE_LINEBREAK:
-		return push_box(state, BREAK, NULL, false, false, false);
+		return push_box(state, BREAK, NULL, 0);
 
 	case CMARK_NODE_TEXT:
-		return render_text(state, cmark_node_get_literal(node), true, false, false, false);
+		return render_text(state, cmark_node_get_literal(node), true, state->style);
+
+	case CMARK_NODE_EMPH:
+		if (entering) {
+			state->style |= ITALIC;
+		} else {
+			state->style &= ~ITALIC;
+		}
+		break;
+
+	case CMARK_NODE_STRONG:
+		if (entering) {
+			state->style |= BOLD;
+		} else {
+			state->style &= ~BOLD;
+		}
+		break;
 
 	default:
 		break;
@@ -523,14 +539,14 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 {
 	struct render_state state = { };
-	state.font_paths[false][false][false] = FONT_PATH MAIN_FONT ".ttf";
-	state.font_paths[false][true][false] = FONT_PATH MAIN_FONT_B ".ttf";
-	state.font_paths[false][false][true] = FONT_PATH MAIN_FONT_I ".ttf";
-	state.font_paths[false][true][true] = FONT_PATH MAIN_FONT_BI ".ttf";
-	state.font_paths[true][false][false] = FONT_PATH TT_FONT ".ttf";
-	state.font_paths[true][true][false] = FONT_PATH TT_FONT_B ".ttf";
-	state.font_paths[true][false][true] = FONT_PATH TT_FONT_I ".ttf";
-	state.font_paths[true][true][true] = FONT_PATH TT_FONT_BI ".ttf";
+	state.font_paths[0] = FONT_PATH MAIN_FONT ".ttf";
+	state.font_paths[BOLD] = FONT_PATH MAIN_FONT_B ".ttf";
+	state.font_paths[ITALIC] = FONT_PATH MAIN_FONT_I ".ttf";
+	state.font_paths[BOLD + ITALIC] = FONT_PATH MAIN_FONT_BI ".ttf";
+	state.font_paths[MONOSPACE] = FONT_PATH TT_FONT ".ttf";
+	state.font_paths[MONOSPACE + BOLD] = FONT_PATH TT_FONT_B ".ttf";
+	state.font_paths[MONOSPACE + ITALIC] = FONT_PATH TT_FONT_I ".ttf";
+	state.font_paths[MONOSPACE + BOLD + ITALIC] = FONT_PATH TT_FONT_BI ".ttf";
 
 	state.pdf = HPDF_New (error_handler, NULL);
 	if (!state.pdf) {
@@ -544,6 +560,7 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 	/* set compression mode */
 	HPDF_SetCompressionMode (state.pdf, HPDF_COMP_ALL);
 
+	state.style = 0;
 	state.base_font_size = 10;
 	state.current_font_size = 10;
 	state.leading = 4;
@@ -553,7 +570,7 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 	state.list_indent_level = 0;
 
 	// load main font: others loaded lazily as needed
-	if (load_font(&state, false, false, false) == STATUS_ERR) {
+	if (load_font(&state, 0) == STATUS_ERR) {
 		return STATUS_ERR;
 	}
 

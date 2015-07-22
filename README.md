@@ -35,12 +35,12 @@ Roadmap
 - [x] Block quotes
 - [x] Hrules
 - [x] Headers
+- [x] Strong
+- [x] Emph
 - [ ] Avoid headers at bottom of page
 - [ ] Improve block quotes with smaller font
 - [ ] Links
 - [ ] Images
-- [ ] Strong
-- [ ] Emph
 - [ ] Better error handling (check status of every function)
 - [ ] Customizability (e.g. selecting fonts, margins, sizes)
 - [ ] Ensure that PDF is searchable and copy-pasteable.
