@@ -111,9 +111,10 @@ push_box(struct render_state *state,
 	new->len = text ? strlen(text) : 0;
 	new->font = font;
 	if (new->type == SPACE) {
-		// spaces have minimum width reduced to aid justification
 		width = HPDF_Font_TextWidth(font, (HPDF_BYTE*)"i", 1);
-		width.width *= 0.67;
+		if (font != state->tt_font) {
+			width.width *= 0.67;
+		}
 	} else {
 		width = HPDF_Font_TextWidth(font, (HPDF_BYTE*)text, new->len);
 	}
