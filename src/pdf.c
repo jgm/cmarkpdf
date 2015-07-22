@@ -17,6 +17,15 @@
 #define TEXT_WIDTH 420
 #define TEXT_HEIGHT 760
 
+#define STATUS_OK 1
+#define STATUS_ERR 0
+
+#define err(fmt, args) \
+	fprintf(stderr, "ERROR (%s:%d): ", __FILE__, __LINE__); \
+	fprintf(stderr, fmt, args); \
+	fprintf(stderr, "\n"); \
+	return STATUS_ERR;
+
 #ifdef HPDF_DLL
 void  __stdcall
 #else
@@ -29,11 +38,6 @@ error_handler (HPDF_STATUS   error_no,
     printf ("ERROR: error_no=%04X, detail_no=%u\n",
 	    (HPDF_UINT)error_no, (HPDF_UINT)detail_no);
 }
-
-#define err(fmt, args) \
-	fprintf(stderr, "ERROR (%s:%d): ", __FILE__, __LINE__); \
-	fprintf(stderr, fmt, args); \
-	fprintf(stderr, "\n");
 
 enum box_type {
 	TEXT,
@@ -161,13 +165,16 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, bool w
 
 }
 
-static void
+static int
 render_box(struct render_state *state, box * b)
 {
 	if (!state->page ||
 	    state->y < HPDF_Page_GetHeight(state->page) - TEXT_HEIGHT) {
 		/* add a new page object. */
 		state->page = HPDF_AddPage (state->pdf);
+		if (!state->page) {
+			err("Could not add page", NULL);
+		}
 		state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
 		state->x = MARGIN_LEFT + state->indent;
 		state->last_text_y = state->y;
@@ -182,6 +189,7 @@ render_box(struct render_state *state, box * b)
 		HPDF_Page_EndText (state->page);
 		state->x += b->width;
 	}
+	return STATUS_OK;
 }
 
 static void
@@ -314,7 +322,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			if (!main_font) {
 				err("Could not load main font '%s'",
 				    MAIN_FONT_PATH);
-				return 1;
 			}
 			state->main_font = HPDF_GetFont (state->pdf,
 							 main_font,
@@ -322,7 +329,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			if (!state->main_font) {
 				err("Could not get main font '%s'",
 				    main_font);
-				return 1;
 			}
 
 			tt_font = HPDF_LoadTTFontFromFile(state->pdf,
@@ -331,7 +337,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			if (!tt_font) {
 				err("Could not load monospace font '%s'",
 				    TT_FONT_PATH);
-				return 1;
 			}
 			state->tt_font = HPDF_GetFont (state->pdf,
 						       tt_font,
@@ -339,7 +344,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			if (!state->tt_font) {
 				err("Could not get monospace font '%s'",
 				    tt_font);
-				return 1;
 			}
 		}
 
@@ -434,7 +438,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		break;
 	}
 
-	return 1;
+	return STATUS_OK;
 }
 
 // Returns 1 on success, 0 on failure.
@@ -446,12 +450,10 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 
 	if (!state.pdf) {
 		err("Cannot create PdfDoc object", NULL);
-		return 1;
 	}
 
 	if (HPDF_UseUTFEncodings(state.pdf) != HPDF_OK) {
 		err("Cannot set UTF-8 encoding", NULL);
-		return 1;
 	};
 
 	/* set compression mode */
@@ -461,28 +463,28 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 	cmark_event_type ev_type;
 	cmark_node *cur;
 	cmark_iter *iter = cmark_iter_new(root);
-	int ok = 1;
+	int status = STATUS_OK;
 
 	while ((ev_type = cmark_iter_next(iter)) != CMARK_EVENT_DONE) {
 		cur = cmark_iter_get_node(iter);
-		ok = S_render_node(cur, ev_type, &state, options);
-		if (!ok) {
+		status = S_render_node(cur, ev_type, &state, options);
+		if (status == STATUS_OK) {
 			break;
 		}
 	}
 
 	cmark_iter_free(iter);
 
-	if (ok) {
+	if (status == STATUS_OK) {
 		/* save the document to a file */
 		if (HPDF_SaveToFile (state.pdf, outfile) != HPDF_OK) {
 			err("Could not save PDF to file '%s'", outfile);
-			ok = 0;
+			status = STATUS_ERR;
 		}
 	}
 
 	/* clean up */
 	HPDF_Free (state.pdf);
 
-	return ok;
+	return status;
 }
