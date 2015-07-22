@@ -25,13 +25,6 @@ void print_usage()
 	printf("  --version         Print version\n");
 }
 
-static void print_document(cmark_node *document, char *outfile,
-                           int options, int width)
-{
-	int result;
-	result = cmark_render_pdf(document, options, outfile);
-}
-
 int main(int argc, char *argv[])
 {
 	int i, numfps = 0;
@@ -41,7 +34,6 @@ int main(int argc, char *argv[])
 	cmark_parser *parser;
 	size_t bytes;
 	cmark_node *document;
-	int width = 0;
 	char *outfile = NULL;
 	int options = CMARK_OPT_DEFAULT | CMARK_OPT_SAFE | CMARK_OPT_NORMALIZE;
 
@@ -122,8 +114,6 @@ int main(int argc, char *argv[])
 
 	document = cmark_parser_finish(parser);
 	cmark_parser_free(parser);
-
-	print_document(document, outfile, options, width);
 
 	ok = cmark_render_pdf(document, options, outfile);
 
