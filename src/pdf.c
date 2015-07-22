@@ -414,6 +414,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 				len = strlen(marker);
 			}
 			parbreak(state);
+			HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
 			HPDF_Page_BeginText (state->page);
 			HPDF_Page_MoveTextPos(state->page, state->x, state->y);
 			HPDF_Page_ShowText(state->page, marker);
