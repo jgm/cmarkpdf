@@ -110,12 +110,14 @@ push_box(struct render_state *state,
 	new->text = text;
 	new->len = text ? strlen(text) : 0;
 	new->font = font;
-	width = HPDF_Font_TextWidth(font, (HPDF_BYTE*)text, new->len);
-	new->width = ( width.width * state->current_font_size ) / 1000;
 	if (new->type == SPACE) {
 		// spaces have minimum width reduced to aid justification
-		new->width -= (state->current_font_size / 16);
+		width = HPDF_Font_TextWidth(font, (HPDF_BYTE*)"i", 1);
+		width.width *= 0.67;
+	} else {
+		width = HPDF_Font_TextWidth(font, (HPDF_BYTE*)text, new->len);
 	}
+	new->width = ( width.width * state->current_font_size ) / 1000;
 	new->next = NULL;
 	if (state->boxes_top != NULL) {
 		state->boxes_top->next = new;
