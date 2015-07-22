@@ -153,6 +153,9 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, bool w
 		if (category != last_category && next > last_tok) {
 			// emit token from last_tok to next-1
 			tok = (char *)malloc((next - last_tok) + 1);
+			if (tok == NULL) {
+				err("Could not allocate token", NULL);
+			}
 			memcpy(tok, last_tok, next - last_tok);
 			tok[next - last_tok] = 0;
 			last_tok = next;
