@@ -350,7 +350,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	float real_width;
 	char * bullets[] = {"\xE2\x97\xA6",
 			    "\xE2\x80\xA2"};
-	char * marker;
+	char marker[20];
 	size_t len;
 	cmark_node * parent;
 
@@ -405,16 +405,13 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			(cmark_node_get_list_type(parent) == CMARK_BULLET_LIST ?
 			 1.5 : 3);
 		if (entering) {
-			len = strlen(bullets[state->list_indent_level % 2]);
-			marker = (char *)malloc(len + 1);
-			if (marker == NULL) {
-				err("Could not allocate marker");
-			}
 			if (cmark_node_get_list_type(parent) == CMARK_BULLET_LIST) {
+				len = strlen(bullets[state->list_indent_level % 2]);
 				memcpy(marker, bullets[state->list_indent_level % 2], len);
 				marker[len] = 0;
 			} else {
 				sprintf(marker, "%4d.", cmark_node_get_list_start(parent));
+				len = strlen(marker);
 			}
 			parbreak(state);
 			HPDF_Page_BeginText (state->page);
@@ -423,7 +420,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			HPDF_Page_EndText (state->page);
 			state->x += real_width;
 			state->indent += real_width;
-			free(marker);
 		} else {
 			state->indent -= real_width;
 		}
