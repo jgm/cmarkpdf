@@ -94,7 +94,7 @@ struct render_state {
 	box * boxes_top;
 };
 
-static void
+static int
 push_box(struct render_state *state,
 	 enum box_type type,
 	 const char * text,
@@ -102,8 +102,9 @@ push_box(struct render_state *state,
 {
 	HPDF_TextWidth width;
 	box * new = (box*)malloc(sizeof(box));
-	if (new == NULL)
-		return;
+	if (new == NULL) {
+		err("Could not allocate box", NULL);
+	}
 	new->type = type;
 	new->text = text;
 	new->len = text ? strlen(text) : 0;
@@ -122,9 +123,10 @@ push_box(struct render_state *state,
 	if (state->boxes_bottom == NULL) {
 		state->boxes_bottom = new;
 	}
+	return STATUS_OK;
 }
 
-static void
+static int
 render_text(struct render_state *state, HPDF_Font font, const char *text, bool wrap)
 {
 	char * tok;
@@ -132,6 +134,7 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, bool w
 	const char * last_tok = text;
 	int category = 0;
 	int last_category = 0;
+	int status;
 
 	while (1) {
 		switch (*next) {
@@ -153,16 +156,19 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, bool w
 			memcpy(tok, last_tok, next - last_tok);
 			tok[next - last_tok] = 0;
 			last_tok = next;
-			push_box(state, tok[0] == ' ' ?
+			status = push_box(state, tok[0] == ' ' ?
 				      SPACE : (tok[0] == '\n' ?
 					       BREAK : TEXT), tok, font);
+			if (status == STATUS_ERR) {
+				return STATUS_ERR;
+			}
 		}
 		if (*next == 0)
 			break;
 		last_category = category;
 		next++;
 	}
-
+	return STATUS_OK;
 }
 
 static int
@@ -300,6 +306,7 @@ static int
 S_render_node(cmark_node *node, cmark_event_type ev_type,
               struct render_state *state, int options)
 {
+	int status;
 	int entering = ev_type == CMARK_EVENT_ENTER;
 	const char *main_font;
 	const char *tt_font;
@@ -394,11 +401,14 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 
 	case CMARK_NODE_CODE_BLOCK:
 		parbreak(state);
-		render_text(state, state->tt_font, cmark_node_get_literal(node), false);
+		status = render_text(state, state->tt_font, cmark_node_get_literal(node), false);
+		if (status == STATUS_ERR) {
+			return STATUS_ERR;
+		}
 		process_boxes(state, state->tt_font, false);
 		HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
 		state->y -= (state->current_font_size + state->leading);
-		break;
+		return STATUS_OK;
 
 	case CMARK_NODE_HEADER:
 		if (entering) {
@@ -419,23 +429,19 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		break;
 
 	case CMARK_NODE_CODE:
-		render_text(state, state->tt_font, cmark_node_get_literal(node), false);
-		break;
+		return render_text(state, state->tt_font, cmark_node_get_literal(node), false);
 
 	case CMARK_NODE_SOFTBREAK:
-		push_box(state, SPACE, NULL, state->main_font);
-		break;
+		return push_box(state, SPACE, NULL, state->main_font);
 
 	case CMARK_NODE_LINEBREAK:
-		push_box(state, BREAK, NULL, state->main_font);
-		break;
+		return push_box(state, BREAK, NULL, state->main_font);
 
 	case CMARK_NODE_TEXT:
-		render_text(state, state->main_font, cmark_node_get_literal(node), true);
-		break;
+		return render_text(state, state->main_font, cmark_node_get_literal(node), true);
 
 	default:
-		break;
+		err("Unknown node type %d", cmark_node_get_type(node));
 	}
 
 	return STATUS_OK;
