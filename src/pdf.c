@@ -164,11 +164,13 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, bool w
 static void
 render_box(struct render_state *state, box * b)
 {
-	if (state->y < HPDF_Page_GetHeight(state->page) -
-	    TEXT_HEIGHT) {
+	if (!state->page ||
+	    state->y < HPDF_Page_GetHeight(state->page) - TEXT_HEIGHT) {
 		/* add a new page object. */
 		state->page = HPDF_AddPage (state->pdf);
 		state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
+		state->x = MARGIN_LEFT + state->indent;
+		state->last_text_y = state->y;
 	}
 	HPDF_Page_SetFontAndSize (state->page, b->font, state->current_font_size);
 	if (b->type == SPACE) {
@@ -339,14 +341,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 				    tt_font);
 				return 1;
 			}
-
-			/* add a new page object. */
-			state->page = HPDF_AddPage (state->pdf);
-			HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
-
-			state->x = MARGIN_LEFT + state->indent;
-			state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
-			state->last_text_y = state->y;
 		}
 
 		break;
