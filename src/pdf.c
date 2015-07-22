@@ -93,8 +93,7 @@ print_box(box * box)
 
 struct render_state {
 	HPDF_Doc pdf;
-	HPDF_Font main_font;
-	HPDF_Font tt_font;
+	HPDF_Font fonts[2][2][2];
 	HPDF_REAL base_font_size;
 	HPDF_REAL current_font_size;
 	HPDF_REAL leading;
@@ -119,7 +118,7 @@ push_box(struct render_state *state,
 	HPDF_TextWidth width;
 	HPDF_Font font;
 
-	font = monospace ? state->tt_font : state->main_font;
+	font = monospace ? state->fonts[1][0][0] : state->fonts[0][0][0];
 	box * new = (box*)malloc(sizeof(box));
 	new->monospace = monospace;
 	new->bold = bold;
@@ -213,7 +212,7 @@ add_page_if_needed(struct render_state *state)
 		state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
 		state->x = MARGIN_LEFT + state->indent;
 		state->last_text_y = state->y;
-		HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
+		HPDF_Page_SetFontAndSize (state->page, state->fonts[0][0][0], state->current_font_size);
 	}
 	return STATUS_OK;
 }
@@ -224,7 +223,7 @@ render_box(struct render_state *state, box * b)
 	int status;
 	HPDF_Font font;
 
-	font = b->monospace ? state->tt_font : state->main_font;
+	font = b->monospace ? state->fonts[1][0][0] : state->fonts[0][0][0];
 
 	status = add_page_if_needed(state);
 	if (status == STATUS_ERR) {
@@ -381,10 +380,10 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 				errf("Could not load main font '%s'",
 				    FONT_PATH MAIN_FONT);
 			}
-			state->main_font = HPDF_GetFont (state->pdf,
+			state->fonts[0][0][0] = HPDF_GetFont (state->pdf,
 							 main_font,
 							 "UTF-8");
-			if (!state->main_font) {
+			if (!state->fonts[0][0][0]) {
 				errf("Could not get main font '%s'",
 				    main_font);
 			}
@@ -396,10 +395,10 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 				errf("Could not load monospace font '%s'",
 				    FONT_PATH TT_FONT);
 			}
-			state->tt_font = HPDF_GetFont (state->pdf,
+			state->fonts[1][0][0] = HPDF_GetFont (state->pdf,
 						       tt_font,
 						       "UTF-8");
-			if (!state->tt_font) {
+			if (!state->fonts[1][0][0]) {
 				errf("Could not get monospace font '%s'",
 				    tt_font);
 			}
@@ -423,7 +422,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 				len = strlen(marker);
 			}
 			parbreak(state);
-			HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
+			HPDF_Page_SetFontAndSize (state->page, state->fonts[0][0][0], state->current_font_size);
 			HPDF_Page_BeginText (state->page);
 			HPDF_Page_MoveTextPos(state->page, state->x, state->y);
 			HPDF_Page_ShowText(state->page, marker);
