@@ -204,8 +204,8 @@ add_page_if_needed(struct render_state *state)
 		state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
 		state->x = MARGIN_LEFT + state->indent;
 		state->last_text_y = state->y;
+		HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
 	}
-	HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
 	return STATUS_OK;
 }
 
@@ -467,7 +467,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			return STATUS_ERR;
 		}
 		process_boxes(state, false);
-		HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
 		state->y -= (state->current_font_size + state->leading);
 		return STATUS_OK;
 
@@ -475,17 +474,11 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		if (entering) {
 			int lev = cmark_node_get_header_level(node);
 			state->current_font_size = state->base_font_size * (1.66 - (lev/6));
-			HPDF_Page_SetFontAndSize (state->page,
-						  state->main_font,
-						  state->current_font_size);
 			parbreak(state);
 		} else {
 			process_boxes(state, true);
 			state->y -= (0.3 * (state->current_font_size + state->leading));
 			state->current_font_size = state->base_font_size;
-			HPDF_Page_SetFontAndSize (state->page,
-						  state->main_font,
-						  state->current_font_size);
 		}
 		break;
 
