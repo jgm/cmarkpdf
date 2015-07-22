@@ -186,6 +186,7 @@ process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
 	box *b;
 	box *tmp;
 	box *last_nonspace;
+	box *stop;
 	float total_width = 0;
 	float extra_space_width;
 	float line_end_space;
@@ -197,7 +198,7 @@ process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
 
 		numspaces = 0;
 		b = state->boxes_bottom;
-		last_nonspace = state->boxes_bottom;
+		last_nonspace = b;
 		// move forward to last box that can fit in line
 		while (b &&
 		       b->type != BREAK &&
@@ -235,8 +236,9 @@ process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
 		// remove and free everything up to last_nonspace,
 		// plus any following spaces. reset boxes_bottom.
 		total_width = 0;
+		stop = last_nonspace->next;
 		while (state->boxes_bottom &&
-		       (state->boxes_bottom != last_nonspace->next)) {
+		       (state->boxes_bottom != stop)) {
 			render_box(state, state->boxes_bottom);
 			tmp = state->boxes_bottom;
 			state->boxes_bottom = state->boxes_bottom->next;
@@ -395,7 +397,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		break;
 
 	case CMARK_NODE_SOFTBREAK:
-		push_box(state, TEXT, " ", state->main_font);
+		push_box(state, SPACE, " ", state->main_font);
 		break;
 
 	case CMARK_NODE_LINEBREAK:
