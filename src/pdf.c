@@ -100,7 +100,7 @@ push_box(struct render_state *state,
 		return;
 	new->type = type;
 	new->text = text;
-	new->len = strlen(text);
+	new->len = text ? strlen(text) : 0;
 	new->font = font;
 	width = HPDF_Font_TextWidth(font, (HPDF_BYTE*)text, new->len);
 	new->width = ( width.width * state->current_font_size ) / 1000;
@@ -242,21 +242,27 @@ process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
 			render_box(state, state->boxes_bottom);
 			tmp = state->boxes_bottom;
 			state->boxes_bottom = state->boxes_bottom->next;
-			// free((char*)tmp->text);
+			if (tmp->text) {
+				free((char*)tmp->text);
+			}
 			free(tmp);
 		}
 		//gobble spaces
 		while (state->boxes_bottom && state->boxes_bottom->type == SPACE) {
 			tmp = state->boxes_bottom;
 			state->boxes_bottom = state->boxes_bottom->next;
-			// free((char*)tmp->text);
+			if (tmp->text) {
+				free((char*)tmp->text);
+			}
 			free(tmp);
 		}
 		//gobble at most one BREAK
 		if (state->boxes_bottom && state->boxes_bottom->type == BREAK) {
 			tmp = state->boxes_bottom;
 			state->boxes_bottom = state->boxes_bottom->next;
-			// free((char*)tmp->text);
+			if (tmp->text) {
+				free((char*)tmp->text);
+			}
 			free(tmp);
 		}
 
@@ -397,11 +403,11 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		break;
 
 	case CMARK_NODE_SOFTBREAK:
-		push_box(state, SPACE, " ", state->main_font);
+		push_box(state, SPACE, NULL, state->main_font);
 		break;
 
 	case CMARK_NODE_LINEBREAK:
-		push_box(state, BREAK, "\n", state->main_font);
+		push_box(state, BREAK, NULL, state->main_font);
 		break;
 
 	case CMARK_NODE_TEXT:
