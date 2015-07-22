@@ -16,9 +16,9 @@ To use:
 
     ./cmarkpdf --smart -o output.pdf input.txt
 
-Note that paths to fonts are hardcoded and may need
-to be adjusted if your system puts fonts in a different
-place or has different fonts.
+Note that for now, paths to fonts are hardcoded in `src/pdf.c`
+and may need to be adjusted if your system puts fonts
+in a different place or has different fonts.
 
 Roadmap
 -------

@@ -9,9 +9,18 @@
 #include <math.h>
 #include "hpdf.h"
 
+#if defined _LINUX
+#define FONT_PATH "/usr/share/fonts/truetype/dejavu/"
+#define MAIN_FONT "DejaVuSerif.ttf"
+#define TT_FONT "DejaVuSansMono.ttf"
 
-// MAIN_FONT_PATH defined in Makefile
-// TT_FONT_PATH defined in Makefile
+#elif defined _OSX
+#define FONT_PATH "/Library/Fonts/"
+#define MAIN_FONT "Georgia.ttf"
+#define TT_FONT "Andale Mono.ttf"
+
+#endif
+
 #define MARGIN_TOP 80
 #define MARGIN_LEFT 80
 #define TEXT_WIDTH 420
@@ -366,11 +375,11 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			state->list_indent_level = 0;
 
 			main_font = HPDF_LoadTTFontFromFile(state->pdf,
-							   MAIN_FONT_PATH,
+							   FONT_PATH MAIN_FONT,
 							   HPDF_TRUE);
 			if (!main_font) {
 				errf("Could not load main font '%s'",
-				    MAIN_FONT_PATH);
+				    FONT_PATH MAIN_FONT);
 			}
 			state->main_font = HPDF_GetFont (state->pdf,
 							 main_font,
@@ -381,11 +390,11 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			}
 
 			tt_font = HPDF_LoadTTFontFromFile(state->pdf,
-							   TT_FONT_PATH,
+							   FONT_PATH TT_FONT,
 							   HPDF_TRUE);
 			if (!tt_font) {
 				errf("Could not load monospace font '%s'",
-				    TT_FONT_PATH);
+				    FONT_PATH TT_FONT);
 			}
 			state->tt_font = HPDF_GetFont (state->pdf,
 						       tt_font,

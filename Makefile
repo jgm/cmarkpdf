@@ -1,12 +1,10 @@
 CCFLAGS = -g
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
-  CCFLAGS += -D MAIN_FONT_PATH='"/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"' \
-	     -D TT_FONT_PATH='"/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"'
+  CCFLAGS += -D _LINUX
 endif
 ifeq ($(UNAME_S),Darwin)
-  CCFLAGS += -D MAIN_FONT_PATH='"/Library/Fonts/Georgia.ttf"' \
-	     -D TT_FONT_PATH='"/Library/Fonts/Andale Mono.ttf"'
+  CCFLAGS += -D _OSX
 endif
 
 .PHONY: all clean leakcheck
