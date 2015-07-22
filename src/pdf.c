@@ -176,7 +176,7 @@ render_text(struct render_state *state, HPDF_Font font, const char *text, bool w
 }
 
 static int
-render_box(struct render_state *state, box * b)
+add_page_if_needed(struct render_state *state)
 {
 	if (!state->page ||
 	    state->y < HPDF_Page_GetHeight(state->page) - TEXT_HEIGHT) {
@@ -188,6 +188,19 @@ render_box(struct render_state *state, box * b)
 		state->y = HPDF_Page_GetHeight(state->page) - MARGIN_TOP;
 		state->x = MARGIN_LEFT + state->indent;
 		state->last_text_y = state->y;
+	}
+	HPDF_Page_SetFontAndSize (state->page, state->main_font, state->current_font_size);
+	return STATUS_OK;
+}
+
+static int
+render_box(struct render_state *state, box * b)
+{
+	int status;
+
+	status = add_page_if_needed(state);
+	if (status == STATUS_ERR) {
+		return status;
 	}
 	HPDF_Page_SetFontAndSize (state->page, b->font, state->current_font_size);
 	if (b->type == SPACE) {
@@ -301,6 +314,7 @@ process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
 static void
 parbreak(struct render_state *state)
 {
+	add_page_if_needed(state);
 	state->y = state->last_text_y -
 		(1.5 * (state->current_font_size + state->leading));
 	state->x = MARGIN_LEFT + state->indent;
@@ -314,10 +328,9 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	int entering = ev_type == CMARK_EVENT_ENTER;
 	const char *main_font;
 	const char *tt_font;
-	HPDF_TextWidth width;
 	float real_width;
-	char * bullets[] = {"\xE2\x97\xA6  ",
-			    "\xE2\x80\xA2  "};
+	char * bullets[] = {"\xE2\x97\xA6",
+			    "\xE2\x80\xA2"};
 	char * marker;
 	size_t len;
 
@@ -361,13 +374,15 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 				err("Could not get monospace font '%s'",
 				    tt_font);
 			}
+
 		}
 
 		break;
 
 	case CMARK_NODE_ITEM:
-		width = HPDF_Font_TextWidth(state->main_font, (HPDF_BYTE*)bullets[state->list_indent_level % 2], strlen(bullets[state->list_indent_level % 2]));
-		real_width = ( width.width * state->current_font_size ) / 1000;
+		real_width = state->current_font_size *
+			(cmark_node_get_list_type(node) == CMARK_BULLET_LIST ?
+			 1.5 : 2.5);
 		if (entering) {
 			len = strlen(bullets[state->list_indent_level % 2]);
 			marker = (char *)malloc(len + 1);
@@ -377,12 +392,13 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			memcpy(marker, bullets[state->list_indent_level % 2], len);
 			marker[len] = 0;
 			parbreak(state);
-			status = push_box(state, TEXT, marker,
-					  state->main_font);
-			if (status == STATUS_ERR) {
-				return status;
-			}
+			HPDF_Page_BeginText (state->page);
+			HPDF_Page_MoveTextPos(state->page, state->x, state->y);
+			HPDF_Page_ShowText(state->page, marker);
+			HPDF_Page_EndText (state->page);
+			state->x += real_width;
 			state->indent += real_width;
+			free(marker);
 		} else {
 			state->indent -= real_width;
 		}
