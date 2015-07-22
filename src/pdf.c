@@ -238,24 +238,24 @@ process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
 		while (state->boxes_bottom &&
 		       (state->boxes_bottom != last_nonspace->next)) {
 			render_box(state, state->boxes_bottom);
-			tmp = state->boxes_bottom->next;
-			// free((char *)state->boxes_bottom->text);
-			free(state->boxes_bottom);
-			state->boxes_bottom = tmp;
+			tmp = state->boxes_bottom;
+			state->boxes_bottom = state->boxes_bottom->next;
+			// free(tmp->text);
+			free(tmp);
 		}
 		//gobble spaces
 		while (state->boxes_bottom && state->boxes_bottom->type == SPACE) {
-			tmp = state->boxes_bottom->next;
-			// free(state->boxes_bottom->text);
-			free(state->boxes_bottom);
-			state->boxes_bottom = tmp;
+			tmp = state->boxes_bottom;
+			state->boxes_bottom = state->boxes_bottom->next;
+			// free(tmp->text);
+			free(tmp);
 		}
 		//gobble at most one BREAK
 		if (state->boxes_bottom && state->boxes_bottom->type == BREAK) {
-			tmp = state->boxes_bottom->next;
-			// free(state->boxes_bottom->text);
-			free(state->boxes_bottom);
-			state->boxes_bottom = tmp;
+			tmp = state->boxes_bottom;
+			state->boxes_bottom = state->boxes_bottom->next;
+			// free(tmp->text);
+			free(tmp);
 		}
 
 		state->last_text_y = state->y;
