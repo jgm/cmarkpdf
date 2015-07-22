@@ -16,7 +16,7 @@ all: cmarkpdf
 %.o: src/%.c
 	$(CC) -Wall -c $< -o $@ $(CCFLAGS)
 
-cmarkpdf: cmarkpdf.o pdf.o
+cmarkpdf: main.o pdf.o
 	$(CC) $^ -o $@ $(CCFLAGS) -lhpdf -lcmark
 
 leakcheck:
