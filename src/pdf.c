@@ -492,7 +492,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		return render_text(state, state->main_font, cmark_node_get_literal(node), true);
 
 	default:
-		fprintf(stderr, "Unknown node type %d\n", cmark_node_get_type(node));
 		break;
 	}
 
