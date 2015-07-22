@@ -16,9 +16,9 @@
 #define MAIN_FONT_I  MAIN_FONT "-Italic"
 #define MAIN_FONT_BI MAIN_FONT "-BoldItalic"
 #define TT_FONT "DejaVuSansMono"
-#define TT_FONT_B  MAIN_FONT "-Bold"
-#define TT_FONT_I  MAIN_FONT "-Oblique"
-#define TT_FONT_BI MAIN_FONT "-BoldOblique"
+#define TT_FONT_B  TT_FONT "-Bold"
+#define TT_FONT_I  TT_FONT "-Oblique"
+#define TT_FONT_BI TT_FONT "-BoldOblique"
 
 #elif defined _OSX
 #define FONT_PATH "/Library/Fonts/"
@@ -488,7 +488,7 @@ load_font(struct render_state *state,
 	  bool monospace,
 	  bool bold,
 	  bool italic,
-	  char *path)
+	  const char *path)
 {
 	const char * fontname;
 
@@ -511,7 +511,17 @@ load_font(struct render_state *state,
 // Returns 1 on success, 0 on failure.
 int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 {
+	int x,y,z;
 	struct render_state state = { };
+	const char * fonts[2][2][2];
+	fonts[false][false][false] = FONT_PATH MAIN_FONT ".ttf";
+	fonts[false][true][false] = FONT_PATH MAIN_FONT_B ".ttf";
+	fonts[false][false][true] = FONT_PATH MAIN_FONT_I ".ttf";
+	fonts[false][true][true] = FONT_PATH MAIN_FONT_BI ".ttf";
+	fonts[true][false][false] = FONT_PATH TT_FONT ".ttf";
+	fonts[true][true][false] = FONT_PATH TT_FONT_B ".ttf";
+	fonts[true][false][true] = FONT_PATH TT_FONT_I ".ttf";
+	fonts[true][true][true] = FONT_PATH TT_FONT_BI ".ttf";
 
 	state.pdf = HPDF_New (error_handler, NULL);
 	if (!state.pdf) {
@@ -533,8 +543,15 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 	state.boxes_top = NULL;
 	state.list_indent_level = 0;
 
-	load_font(&state, false, false, false, FONT_PATH MAIN_FONT ".ttf");
-	load_font(&state, true, false, false, FONT_PATH TT_FONT ".ttf");
+	for (x = 0; x <= 1; x++) {
+		for (y = 0; y <= 1; y++) {
+			for (z = 0; z <= 1; z++) {
+				if (load_font(&state, x, y, z, fonts[x][y][z]) == STATUS_ERR) {
+					return STATUS_ERR;
+				}
+			}
+		}
+	}
 
 	cmark_event_type ev_type;
 	cmark_node *cur;
