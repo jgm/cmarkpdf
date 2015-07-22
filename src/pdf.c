@@ -198,6 +198,7 @@ process_boxes(struct render_state *state, HPDF_Font font, bool wrap)
 
 		numspaces = 0;
 		b = state->boxes_bottom;
+		last_nonspace = state->boxes_bottom;
 		// move forward to last box that can fit in line
 		while (b &&
 		       b->type != BREAK &&
