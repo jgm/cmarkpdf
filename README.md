@@ -27,9 +27,9 @@ Roadmap
       algorithm.  (In the future we might explore using
       Knuth-Prass.)
 - [x] List items (currently all treated as bulleted).
-- [ ] Proper list markers for ordered and bullet lists
-      (bullet lists should use different bullets at different
-      indent level).
+- [x] Bullet lists should use different bullets at different
+      indent level.
+- [ ] Proper list markers for ordered lists
 - [x] Code spans
 - [x] Code blocks
 - [x] Block quotes

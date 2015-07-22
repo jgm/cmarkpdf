@@ -92,6 +92,7 @@ struct render_state {
 	float last_text_y;
 	box * boxes_bottom;
 	box * boxes_top;
+	int list_indent_level;
 };
 
 static int
@@ -315,6 +316,10 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	const char *tt_font;
 	HPDF_TextWidth width;
 	float real_width;
+	char * bullets[] = {"\xE2\x97\xA6  ",
+			    "\xE2\x80\xA2  "};
+	char * marker;
+	size_t len;
 
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
@@ -325,6 +330,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			state->indent = 0;
 			state->boxes_bottom = NULL;
 			state->boxes_top = NULL;
+			state->list_indent_level = 0;
 
 			main_font = HPDF_LoadTTFontFromFile(state->pdf,
 							   MAIN_FONT_PATH,
@@ -360,18 +366,33 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		break;
 
 	case CMARK_NODE_ITEM:
-		width = HPDF_Font_TextWidth(state->main_font, (HPDF_BYTE*)"\xE2\x80\xA2  ", 5);
+		width = HPDF_Font_TextWidth(state->main_font, (HPDF_BYTE*)bullets[state->list_indent_level % 2], strlen(bullets[state->list_indent_level % 2]));
 		real_width = ( width.width * state->current_font_size ) / 1000;
 		if (entering) {
+			len = strlen(bullets[state->list_indent_level % 2]);
+			marker = (char *)malloc(len + 1);
+			if (marker == NULL) {
+				err("Could not allocate marker", NULL);
+			}
+			memcpy(marker, bullets[state->list_indent_level % 2], len);
+			marker[len] = 0;
 			parbreak(state);
-			HPDF_Page_BeginText (state->page);
-			HPDF_Page_MoveTextPos(state->page, state->x, state->y);
-			HPDF_Page_ShowText(state->page, "\xE2\x80\xA2  ");
-			HPDF_Page_EndText (state->page);
+			status = push_box(state, TEXT, marker,
+					  state->main_font);
+			if (status == STATUS_ERR) {
+				return status;
+			}
 			state->indent += real_width;
-			state->x = MARGIN_LEFT + state->indent;
 		} else {
 			state->indent -= real_width;
+		}
+		break;
+
+	case CMARK_NODE_LIST:
+		if (entering) {
+			state->list_indent_level++;
+		} else {
+			state->list_indent_level--;
 		}
 		break;
 
