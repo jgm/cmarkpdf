@@ -12,11 +12,11 @@ endif
 
 all: cmarkpdf
 
-%.o: %.c
+%.o: src/%.c
 	$(CC) -Wall -c $< -o $@ $(CCFLAGS)
 
 cmarkpdf: cmarkpdf.o pdf.o
 	$(CC) $^ -o $@ $(CCFLAGS) -lhpdf -lcmark
 
 clean:
-	-rm *.pdf *.o cmarkpdf
+	-rm *.o cmarkpdf
