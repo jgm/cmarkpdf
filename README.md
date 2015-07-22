@@ -35,6 +35,7 @@ Roadmap
 - [x] Block quotes
 - [x] Hrules
 - [x] Headers
+- [ ] Avoid headers at bottom of page
 - [ ] Improve block quotes with smaller font
 - [ ] Links
 - [ ] Images
