@@ -319,8 +319,7 @@ render_box(struct render_state *state, box * b)
 	if (b->type == IMAGE) {
 		if (HPDF_Page_DrawImage(state->page, b->image,
 					state->x,
-					state->y,
-					//	state->y + state->current_font_size + state->leading - b->height,
+					state->y + state->current_font_size + state->leading - b->height,
 					b->width,
 					b->height
 			    ) != HPDF_OK) {
@@ -455,9 +454,9 @@ process_boxes(struct render_state *state, bool wrap)
 			free(tmp);
 		}
 
-		state->last_text_y = state->y;
+		state->last_text_y = state->y + state->current_font_size + state->leading - max_height;
 		state->x = MARGIN_LEFT + state->indent;
-		state->y -= max_height;
+		state->y = state->y + state->current_font_size + state->leading - max_height;
 
 	}
 	state->boxes_top = NULL;
