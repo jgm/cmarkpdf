@@ -23,13 +23,13 @@
 #elif defined _OSX
 #define FONT_PATH "/Library/Fonts/"
 #define MAIN_FONT "Georgia"
-#define MAIN_FONT_B  MAIN_FONT "-Bold"
-#define MAIN_FONT_I  MAIN_FONT "-Italic"
-#define MAIN_FONT_BI MAIN_FONT "-BoldItalic"
+#define MAIN_FONT_B  MAIN_FONT " Bold"
+#define MAIN_FONT_I  MAIN_FONT " Italic"
+#define MAIN_FONT_BI MAIN_FONT " Bold Italic"
 #define TT_FONT "Andale Mono"
-#define TT_FONT_B  TT_FONT "-Bold"
-#define TT_FONT_I  TT_FONT "-Italic"
-#define TT_FONT_BI TT_FONT "-BoldItalic"
+#define TT_FONT_B  TT_FONT
+#define TT_FONT_I  TT_FONT
+#define TT_FONT_BI TT_FONT
 #endif
 
 #define MARGIN_TOP 80
