@@ -37,7 +37,6 @@ Roadmap
 - [x] Headers
 - [x] Strong
 - [x] Emph
-- [ ] Avoid headers at bottom of page
 - [x] Links
 - [ ] Images
 - [ ] Better error handling (check status of every function)

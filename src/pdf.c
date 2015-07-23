@@ -246,11 +246,13 @@ render_text(struct render_state *state, const char *text, bool wrap, int style)
 	return STATUS_OK;
 }
 
+// padding ensures that the specified space exists on the page
 static int
-add_page_if_needed(struct render_state *state)
+add_page_if_needed(struct render_state *state, float padding)
 {
 	if (!state->page ||
-	    state->y < HPDF_Page_GetHeight(state->page) - TEXT_HEIGHT) {
+	    state->y - padding <
+	    HPDF_Page_GetHeight(state->page) - TEXT_HEIGHT) {
 		/* add a new page object. */
 		state->page = HPDF_AddPage (state->pdf);
 		if (!state->page) {
@@ -280,7 +282,7 @@ render_box(struct render_state *state, box * b)
 	}
 	font = state->fonts[b->style];
 
-	status = add_page_if_needed(state);
+	status = add_page_if_needed(state, 0);
 	if (status == STATUS_ERR) {
 		return status;
 	}
@@ -406,13 +408,20 @@ process_boxes(struct render_state *state, bool wrap)
 
 }
 
-static void
-parbreak(struct render_state *state)
+static int
+parbreak(struct render_state *state, float buffer)
 {
-	add_page_if_needed(state);
+	int status;
+
+	status = add_page_if_needed(state, buffer);
+	if (status == STATUS_ERR) {
+		return status;
+	}
 	state->y = state->last_text_y -
 		(1.5 * (state->current_font_size + state->leading));
 	state->x = MARGIN_LEFT + state->indent;
+
+	return STATUS_OK;
 }
 
 static int
@@ -446,7 +455,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 				sprintf(marker, "%4d.", cmark_node_get_list_start(parent));
 				len = strlen(marker);
 			}
-			parbreak(state);
+			parbreak(state, 0);
 			HPDF_Page_SetFontAndSize (state->page,
 						  state->fonts[0],
 						  state->current_font_size);
@@ -470,7 +479,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		break;
 
 	case CMARK_NODE_HRULE:
-		parbreak(state);
+		parbreak(state, 0);
 		HPDF_Page_MoveTo(state->page, state->x, state->y + state->leading);
 		HPDF_Page_LineTo(state->page, state->x + (TEXT_WIDTH - (state->x - MARGIN_LEFT)), state->y + state->leading);
 		HPDF_Page_Stroke(state->page);
@@ -491,14 +500,14 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 
 	case CMARK_NODE_PARAGRAPH:
 		if (entering) {
-			parbreak(state);
+			parbreak(state, 0);
 		} else {
 			process_boxes(state, true);
 		}
 		break;
 
 	case CMARK_NODE_CODE_BLOCK:
-		parbreak(state);
+		parbreak(state, 0);
 		status = render_text(state, cmark_node_get_literal(node), false, state->style | MONOSPACE);
 		if (status == STATUS_ERR) {
 			return STATUS_ERR;
@@ -511,7 +520,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		if (entering) {
 			int lev = cmark_node_get_header_level(node);
 			state->current_font_size = state->base_font_size * (1.66 - (lev/6));
-			parbreak(state);
+			parbreak(state, 3 * state->current_font_size);
 		} else {
 			process_boxes(state, true);
 			state->y -= (0.3 * (state->current_font_size + state->leading));
