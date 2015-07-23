@@ -69,7 +69,8 @@ error_handler (HPDF_STATUS   error_no,
 enum box_type {
 	TEXT,
 	SPACE,
-	BREAK
+	BREAK,
+	IMAGE
 };
 
 struct box {
@@ -77,14 +78,15 @@ struct box {
 	const char * text;
 	int len;
 	float width;
+	float height;
 	struct box * next;
 	int style;
 	const char * link_dest;
+	HPDF_Image image;
 };
 
 typedef struct box box;
 
-/*
 // for diagnostics
 static void
 print_box(box * box)
@@ -92,6 +94,9 @@ print_box(box * box)
 	switch (box->type) {
 	case TEXT:
 		printf("TEXT  ");
+		break;
+	case IMAGE:
+		printf("IMAGE ");
 		break;
 	case SPACE:
 		printf("SPACE ");
@@ -104,7 +109,6 @@ print_box(box * box)
 	}
 	printf("%5.2f|%2x|%s|\n", box->width, box->style, box->text);
 };
-*/
 
 struct render_state {
 	HPDF_Doc pdf;
@@ -155,6 +159,33 @@ load_font(struct render_state *state,
 }
 
 static int
+push_image_box(struct render_state *state,
+	       HPDF_Image image)
+{
+	box * new = (box*)malloc(sizeof(box));
+	if (new == NULL) {
+		err("Could not allocate box");
+	}
+	new->type = IMAGE;
+	new->style = 0;
+	new->text = NULL;
+	new->len = 0;
+	new->link_dest = NULL;
+	new->image = image;
+	new->width = HPDF_Image_GetWidth(image);
+	new->height = HPDF_Image_GetHeight(image);
+	new->next = NULL;
+	if (state->boxes_top != NULL) {
+		state->boxes_top->next = new;
+	}
+	state->boxes_top = new;
+	if (state->boxes_bottom == NULL) {
+		state->boxes_bottom = new;
+	}
+	return STATUS_OK;
+}
+
+static int
 push_box(struct render_state *state,
 	 enum box_type type,
 	 const char * text,
@@ -169,14 +200,15 @@ push_box(struct render_state *state,
 	font = state->fonts[style];
 
 	box * new = (box*)malloc(sizeof(box));
-	new->style = style;
 	if (new == NULL) {
 		err("Could not allocate box");
 	}
+	new->style = style;
 	new->type = type;
 	new->text = text;
 	new->len = text ? strlen(text) : 0;
 	new->link_dest = state->link_dest;
+	new->height = state->current_font_size + state->leading;
 
 	if (new->type == SPACE) {
 		width = HPDF_Font_TextWidth(font, (HPDF_BYTE*)"i", 1);
@@ -276,6 +308,19 @@ render_box(struct render_state *state, box * b)
 	HPDF_Font font;
 	HPDF_Rect rect = {state->x, state->y, state->x + b->width,
                            state->y + state->current_font_size};
+	if (b->type == IMAGE) {
+		if (HPDF_Page_DrawImage(state->page, b->image,
+					state->x,
+					state->y,
+					//	state->y + state->current_font_size + state->leading - b->height,
+					b->width,
+					b->height
+			    ) != HPDF_OK) {
+			err("Could not draw image");
+		}
+		state->x += b->width;
+		return STATUS_OK;
+	}
 
 	// lazily load fonts as needed
 	if (load_font(state, b->style) == STATUS_ERR) {
@@ -327,6 +372,7 @@ process_boxes(struct render_state *state, bool wrap)
 	float max_width = TEXT_WIDTH - state->indent;
 	int numspaces;
 	int numspaces_to_last_nonspace;
+	float max_height;
 
 	while (state->boxes_bottom) {
 
@@ -374,6 +420,9 @@ process_boxes(struct render_state *state, bool wrap)
 		stop = last_nonspace->next;
 		while (state->boxes_bottom &&
 		       (state->boxes_bottom != stop)) {
+			if (max_height < state->boxes_bottom->height) {
+				max_height = state->boxes_bottom->height;
+			}
 			if (render_box(state, state->boxes_bottom) == STATUS_ERR) {
 				return STATUS_ERR;
 			}
@@ -405,7 +454,7 @@ process_boxes(struct render_state *state, bool wrap)
 
 		state->last_text_y = state->y;
 		state->x = MARGIN_LEFT + state->indent;
-		state->y -= (state->current_font_size + state->leading);
+		state->y -= max_height;
 
 	}
 	state->boxes_top = NULL;
@@ -445,7 +494,6 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	cmark_node * tmp;
 	HPDF_Image image;
 	const char * image_path;
-	int iw, ih;
 
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
@@ -579,21 +627,14 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			image_path = cmark_node_get_url(node);
 		        image = HPDF_LoadPngImageFromFile(state->pdf, image_path);
 			if (image == NULL) {
-				errf("Could not load PNG image '%s'",
-				     image_path);
+				fprintf(stderr,
+					"Could not load PNG image '%s'\n",
+					image_path);
+				HPDF_ResetError(state->pdf);
+				return STATUS_OK;
+			} else if (push_image_box(state, image) == STATUS_ERR) {
+				return STATUS_ERR;
 			}
-			// TODO: replace this with a push_box
-			// add image type to box
-			// add rendering to render_box
-			// support jpg too, determine extension
-			iw = HPDF_Image_GetWidth(image);
-			ih = HPDF_Image_GetHeight(image);
-			if (HPDF_Page_DrawImage(state->page, image,
-						state->x, state->y + state->current_font_size + state->leading - ih, iw, ih) != HPDF_OK) {
-				errf("Could not draw image '%s'",
-				     image_path);
-			}
-			state->x += iw;
 			return STATUS_SKIP;
 		}
 		break;
