@@ -39,6 +39,16 @@ Roadmap
 - [x] Emph
 - [x] Links
 - [ ] Images
+
+        HPDF_Image HPDF_Image_LoadJpegImage  (HPDF_MMgr        mmgr,
+           HPDF_Stream      jpeg_data, HPDF_Xref        xref)
+
+        HPDF_Image
+        HPDF_Image_LoadPngImage  (HPDF_MMgr        mmgr,
+           HPDF_Stream      png_data,
+           HPDF_Xref        xref,
+           PDF_BOOL        delayed_loading)
+
 - [ ] Better error handling (check status of every function)
 - [ ] Customizability (e.g. selecting fonts, margins, sizes)
 - [ ] Ensure that PDF is searchable and copy-pasteable.
