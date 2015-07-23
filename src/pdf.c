@@ -78,6 +78,7 @@ struct box {
 	float width;
 	struct box * next;
 	int style;
+	const char * link_dest;
 };
 
 typedef struct box box;
@@ -120,6 +121,7 @@ struct render_state {
 	box * boxes_top;
 	int list_indent_level;
 	int style;
+	const char* link_dest;
 };
 
 // lazily load font
@@ -173,6 +175,8 @@ push_box(struct render_state *state,
 	new->type = type;
 	new->text = text;
 	new->len = text ? strlen(text) : 0;
+	new->link_dest = state->link_dest;
+
 	if (new->type == SPACE) {
 		width = HPDF_Font_TextWidth(font, (HPDF_BYTE*)"i", 1);
 		if (!(style & MONOSPACE)) {
@@ -278,6 +282,11 @@ render_box(struct render_state *state, box * b)
 	if (status == STATUS_ERR) {
 		return status;
 	}
+
+	if (b->link_dest != NULL) {
+		printf("TODO: render link %s\n", b->link_dest);
+	}
+
 	HPDF_Page_SetFontAndSize (state->page, font, state->current_font_size);
 	if (b->type == SPACE) {
 		state->x += b->width;
@@ -511,6 +520,14 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	case CMARK_NODE_TEXT:
 		return render_text(state, cmark_node_get_literal(node), true, state->style);
 
+	case CMARK_NODE_LINK:
+		if (entering) {
+			state->link_dest = cmark_node_get_url(node);
+		} else {
+			state->link_dest = NULL;
+		}
+		break;
+
 	case CMARK_NODE_EMPH:
 		if (entering) {
 			state->style |= ITALIC;
@@ -568,6 +585,7 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 	state.boxes_bottom = NULL;
 	state.boxes_top = NULL;
 	state.list_indent_level = 0;
+	state.link_dest = NULL;
 
 	// load main font: others loaded lazily as needed
 	if (load_font(&state, 0) == STATUS_ERR) {
