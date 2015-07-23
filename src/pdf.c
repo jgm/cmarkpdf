@@ -287,7 +287,7 @@ render_box(struct render_state *state, box * b)
 		return status;
 	}
 
-	if (b->link_dest != NULL) {
+	if (b->link_dest != NULL && b->link_dest[0] != 0) {
 		if (HPDF_Page_CreateURILinkAnnot (state->page, rect,
 						  b->link_dest) == NULL) {
 			errf("Could not create link to '%s'", b->link_dest);
@@ -313,7 +313,7 @@ render_box(struct render_state *state, box * b)
 	return STATUS_OK;
 }
 
-static void
+static int
 process_boxes(struct render_state *state, bool wrap)
 {
 	box *b;
@@ -373,7 +373,9 @@ process_boxes(struct render_state *state, bool wrap)
 		stop = last_nonspace->next;
 		while (state->boxes_bottom &&
 		       (state->boxes_bottom != stop)) {
-			render_box(state, state->boxes_bottom);
+			if (render_box(state, state->boxes_bottom) == STATUS_ERR) {
+				return STATUS_ERR;
+			}
 			tmp = state->boxes_bottom;
 			state->boxes_bottom = state->boxes_bottom->next;
 			if (tmp->text) {
@@ -407,15 +409,15 @@ process_boxes(struct render_state *state, bool wrap)
 	}
 	state->boxes_top = NULL;
 	state->boxes_bottom = NULL;
-
+	return STATUS_OK;
 }
 
 static int
-parbreak(struct render_state *state, float buffer)
+parbreak(struct render_state *state, float padding)
 {
 	int status;
 
-	status = add_page_if_needed(state, buffer);
+	status = add_page_if_needed(state, padding);
 	if (status == STATUS_ERR) {
 		return status;
 	}
@@ -511,9 +513,13 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 
 	case CMARK_NODE_PARAGRAPH:
 		if (entering) {
-			parbreak(state, 0);
+			if (parbreak(state, 0) == STATUS_ERR) {
+				return STATUS_ERR;
+			}
 		} else {
-			process_boxes(state, true);
+			if (process_boxes(state, true) == STATUS_ERR) {
+				return STATUS_ERR;
+			}
 		}
 		break;
 
@@ -523,7 +529,10 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		if (status == STATUS_ERR) {
 			return STATUS_ERR;
 		}
-		process_boxes(state, false);
+		status = process_boxes(state, false);
+		if (status == STATUS_ERR) {
+			return STATUS_ERR;
+		}
 		state->y -= (state->current_font_size + state->leading);
 		return STATUS_OK;
 
@@ -533,7 +542,9 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			state->current_font_size = state->base_font_size * (1.66 - (lev/6));
 			parbreak(state, 3 * state->current_font_size);
 		} else {
-			process_boxes(state, true);
+			if (process_boxes(state, true) == STATUS_ERR) {
+				return STATUS_ERR;
+			}
 			state->y -= (0.3 * (state->current_font_size + state->leading));
 			state->current_font_size = state->base_font_size;
 		}
