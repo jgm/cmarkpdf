@@ -480,9 +480,10 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 
 	case CMARK_NODE_BLOCK_QUOTE:
 		if (entering) {
-			// TODO also change font size, right indent?
 			state->indent += state->current_font_size * 2;
+			state->current_font_size = state->current_font_size - 2;
 		} else {
+			state->current_font_size = state->base_font_size;
 			state->indent -= state->current_font_size * 2;
 		}
 		break;

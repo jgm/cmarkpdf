@@ -38,7 +38,6 @@ Roadmap
 - [x] Strong
 - [x] Emph
 - [ ] Avoid headers at bottom of page
-- [ ] Improve block quotes with smaller font
 - [x] Links
 - [ ] Images
 - [ ] Better error handling (check status of every function)
