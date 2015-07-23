@@ -87,6 +87,7 @@ struct box {
 
 typedef struct box box;
 
+/*
 // for diagnostics
 static void
 print_box(box * box)
@@ -109,6 +110,7 @@ print_box(box * box)
 	}
 	printf("%5.2f|%2x|%s|\n", box->width, box->style, box->text);
 };
+*/
 
 struct render_state {
 	HPDF_Doc pdf;
@@ -308,6 +310,12 @@ render_box(struct render_state *state, box * b)
 	HPDF_Font font;
 	HPDF_Rect rect = {state->x, state->y, state->x + b->width,
                            state->y + state->current_font_size};
+
+	status = add_page_if_needed(state, 0);
+	if (status == STATUS_ERR) {
+		return status;
+	}
+
 	if (b->type == IMAGE) {
 		if (HPDF_Page_DrawImage(state->page, b->image,
 					state->x,
@@ -327,11 +335,6 @@ render_box(struct render_state *state, box * b)
 		return STATUS_ERR;
 	}
 	font = state->fonts[b->style];
-
-	status = add_page_if_needed(state, 0);
-	if (status == STATUS_ERR) {
-		return status;
-	}
 
 	if (b->link_dest != NULL && b->link_dest[0] != 0) {
 		if (HPDF_Page_CreateURILinkAnnot (state->page, rect,
@@ -717,8 +720,7 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 		if (status == STATUS_SKIP &&
 		    cmark_node_last_child(cur)) {
 			// skip processing children
-			cmark_iter_reset(iter, cmark_node_last_child(cur),
-					 CMARK_EVENT_DONE);
+			cmark_iter_reset(iter, cur, CMARK_EVENT_EXIT);
 			status = STATUS_OK;
 		}
 	}
