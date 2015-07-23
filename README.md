@@ -38,8 +38,8 @@ Roadmap
 - [x] Strong
 - [x] Emph
 - [x] Links
-- [ ] Images
-      have a start on this - see TODO notes in source
+- [ ] Adjust vert space before rendering line so images get right
+      space
 - [ ] Better error handling (check status of every function)
 - [ ] Customizability (e.g. selecting fonts, margins, sizes)
 - [ ] Ensure that PDF is searchable and copy-pasteable.
