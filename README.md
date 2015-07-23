@@ -39,13 +39,7 @@ Roadmap
 - [x] Emph
 - [x] Links
 - [ ] Images
-
-        HPDF_Image
-        image3 = HPDF_LoadPngImageFromFile (pdf,
-           "pngsuite/maskimage.png");
-        iw = HPDF_Image_GetWidth (image);
-        ih = HPDF_Image_GetHeight (image);
-
+      have a start on this - see TODO notes in source
 - [ ] Better error handling (check status of every function)
 - [ ] Customizability (e.g. selecting fonts, margins, sizes)
 - [ ] Ensure that PDF is searchable and copy-pasteable.

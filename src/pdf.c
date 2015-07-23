@@ -443,6 +443,9 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	cmark_node * parent;
 	int itemnumber;
 	cmark_node * tmp;
+	HPDF_Image image;
+	const char * image_path;
+	int iw, ih;
 
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
@@ -573,8 +576,25 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 
 	case CMARK_NODE_IMAGE:
 		if (entering) {
+			image_path = cmark_node_get_url(node);
+		        image = HPDF_LoadPngImageFromFile(state->pdf, image_path);
+			if (image == NULL) {
+				errf("Could not load PNG image '%s'",
+				     image_path);
+			}
+			// TODO: replace this with a push_box
+			// add image type to box
+			// add rendering to render_box
+			// support jpg too, determine extension
+			iw = HPDF_Image_GetWidth(image);
+			ih = HPDF_Image_GetHeight(image);
+			if (HPDF_Page_DrawImage(state->page, image,
+						state->x, state->y + state->current_font_size + state->leading - ih, iw, ih) != HPDF_OK) {
+				errf("Could not draw image '%s'",
+				     image_path);
+			}
+			state->x += iw;
 			return STATUS_SKIP;
-		} else {
 		}
 		break;
 
@@ -653,8 +673,12 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 		if (status == STATUS_ERR) {
 			break;
 		}
-		if (status == STATUS_SKIP) {
-			cmark_iter_reset(iter, cur, CMARK_EVENT_DONE);
+		if (status == STATUS_SKIP &&
+		    cmark_node_last_child(cur)) {
+			// skip processing children
+			cmark_iter_reset(iter, cmark_node_last_child(cur),
+					 CMARK_EVENT_DONE);
+			status = STATUS_OK;
 		}
 	}
 
