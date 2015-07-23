@@ -37,6 +37,7 @@
 #define TEXT_WIDTH 380
 #define TEXT_HEIGHT 720
 
+#define STATUS_SKIP 2
 #define STATUS_OK 1
 #define STATUS_ERR 0
 
@@ -570,6 +571,13 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		}
 		break;
 
+	case CMARK_NODE_IMAGE:
+		if (entering) {
+			return STATUS_SKIP;
+		} else {
+		}
+		break;
+
 	case CMARK_NODE_EMPH:
 		if (entering) {
 			state->style |= ITALIC;
@@ -644,6 +652,9 @@ int cmark_render_pdf(cmark_node *root, int options, char *outfile)
 		status = S_render_node(cur, ev_type, &state, options);
 		if (status == STATUS_ERR) {
 			break;
+		}
+		if (status == STATUS_SKIP) {
+			cmark_iter_reset(iter, cur, CMARK_EVENT_DONE);
 		}
 	}
 

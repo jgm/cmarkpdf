@@ -40,14 +40,11 @@ Roadmap
 - [x] Links
 - [ ] Images
 
-        HPDF_Image HPDF_Image_LoadJpegImage  (HPDF_MMgr        mmgr,
-           HPDF_Stream      jpeg_data, HPDF_Xref        xref)
-
         HPDF_Image
-        HPDF_Image_LoadPngImage  (HPDF_MMgr        mmgr,
-           HPDF_Stream      png_data,
-           HPDF_Xref        xref,
-           PDF_BOOL        delayed_loading)
+        image3 = HPDF_LoadPngImageFromFile (pdf,
+           "pngsuite/maskimage.png");
+        iw = HPDF_Image_GetWidth (image);
+        ih = HPDF_Image_GetHeight (image);
 
 - [ ] Better error handling (check status of every function)
 - [ ] Customizability (e.g. selecting fonts, margins, sizes)
