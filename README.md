@@ -38,6 +38,7 @@ Roadmap
 - [x] Strong
 - [x] Emph
 - [x] Links
+- [ ] Images: support jpeg too
 - [ ] Adjust vert space before rendering line so images get right
       space
 - [ ] Better error handling (check status of every function)
