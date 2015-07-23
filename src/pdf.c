@@ -450,6 +450,7 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			 1.5 : 3);
 		if (entering) {
 			if (cmark_node_get_list_type(parent) == CMARK_BULLET_LIST) {
+				parbreak(state, 0);
 				len = strlen(bullets[state->list_indent_level % 2]);
 				memcpy(marker, bullets[state->list_indent_level % 2], len);
 				marker[len] = 0;
