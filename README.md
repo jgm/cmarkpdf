@@ -39,7 +39,7 @@ Roadmap
 - [x] Emph
 - [ ] Avoid headers at bottom of page
 - [ ] Improve block quotes with smaller font
-- [ ] Links
+- [x] Links
 - [ ] Images
 - [ ] Better error handling (check status of every function)
 - [ ] Customizability (e.g. selecting fonts, margins, sizes)

@@ -271,6 +271,8 @@ render_box(struct render_state *state, box * b)
 {
 	int status;
 	HPDF_Font font;
+	HPDF_Rect rect = {state->x, state->y, state->x + b->width,
+                           state->y + state->current_font_size};
 
 	// lazily load fonts as needed
 	if (load_font(state, b->style) == STATUS_ERR) {
@@ -284,7 +286,8 @@ render_box(struct render_state *state, box * b)
 	}
 
 	if (b->link_dest != NULL) {
-		printf("TODO: render link %s\n", b->link_dest);
+		HPDF_Page_CreateURILinkAnnot (state->page, rect,
+                       b->link_dest);
 	}
 
 	HPDF_Page_SetFontAndSize (state->page, font, state->current_font_size);
@@ -292,8 +295,14 @@ render_box(struct render_state *state, box * b)
 		state->x += b->width;
 	} else {
 		HPDF_Page_BeginText (state->page);
+		if (b->link_dest != NULL) {
+			HPDF_Page_SetCMYKFill(state->page, 1, 0.5, 0, 0.5);
+		}
 		HPDF_Page_MoveTextPos(state->page, state->x, state->y);
 		HPDF_Page_ShowText(state->page, b->text);
+		if (b->link_dest != NULL) {
+			HPDF_Page_SetCMYKFill(state->page, 0, 0, 0, 1);
+		}
 		HPDF_Page_EndText (state->page);
 		state->x += b->width;
 	}
