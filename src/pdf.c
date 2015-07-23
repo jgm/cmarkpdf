@@ -32,10 +32,10 @@
 #define TT_FONT_BI TT_FONT
 #endif
 
-#define MARGIN_TOP 80
-#define MARGIN_LEFT 80
-#define TEXT_WIDTH 420
-#define TEXT_HEIGHT 760
+#define MARGIN_TOP 100
+#define MARGIN_LEFT 100
+#define TEXT_WIDTH 380
+#define TEXT_HEIGHT 720
 
 #define STATUS_OK 1
 #define STATUS_ERR 0
