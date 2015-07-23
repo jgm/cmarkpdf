@@ -375,7 +375,7 @@ process_boxes(struct render_state *state, bool wrap)
 	float max_width = TEXT_WIDTH - state->indent;
 	int numspaces;
 	int numspaces_to_last_nonspace;
-	float max_height;
+	float max_height = 0;
 
 	while (state->boxes_bottom) {
 
