@@ -436,6 +436,8 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	char marker[20];
 	size_t len;
 	cmark_node * parent;
+	int itemnumber;
+	cmark_node * tmp;
 
 	switch (cmark_node_get_type(node)) {
 	case CMARK_NODE_DOCUMENT:
@@ -452,7 +454,13 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 				memcpy(marker, bullets[state->list_indent_level % 2], len);
 				marker[len] = 0;
 			} else {
-				sprintf(marker, "%4d.", cmark_node_get_list_start(parent));
+				itemnumber = cmark_node_get_list_start(parent);
+				tmp = node;
+				while (cmark_node_previous(tmp)) {
+					itemnumber++;
+					tmp = cmark_node_previous(tmp);
+				}
+				sprintf(marker, "%4d.", itemnumber);
 				len = strlen(marker);
 			}
 			parbreak(state, 0);
