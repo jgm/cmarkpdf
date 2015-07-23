@@ -5,9 +5,9 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <cmark.h>
-#include "cmarkpdf.h"
 #include <math.h>
 #include "hpdf.h"
+#include "pdf.h"
 
 #if defined _LINUX
 #define FONT_PATH "/usr/share/fonts/truetype/dejavu/"

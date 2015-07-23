@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <cmark.h>
 #include <hpdf.h>
-#include "cmarkpdf.h"
+#include "pdf.h"
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
 #include <io.h>
