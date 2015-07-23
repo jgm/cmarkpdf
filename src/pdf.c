@@ -288,8 +288,10 @@ render_box(struct render_state *state, box * b)
 	}
 
 	if (b->link_dest != NULL) {
-		HPDF_Page_CreateURILinkAnnot (state->page, rect,
-                       b->link_dest);
+		if (HPDF_Page_CreateURILinkAnnot (state->page, rect,
+						  b->link_dest) == NULL) {
+			errf("Could not create link to '%s'", b->link_dest);
+		}
 	}
 
 	HPDF_Page_SetFontAndSize (state->page, font, state->current_font_size);
