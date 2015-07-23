@@ -342,8 +342,9 @@ process_boxes(struct render_state *state, bool wrap)
 			b = b->next;
 		}
 
-		// recalculate space widths, unless last line of para.
-		if (b && wrap) {
+		// recalculate space widths, unless last line of para or
+		// line ends with hard break.
+		if (b && b->type != BREAK && wrap) {
 			line_end_space = max_width - total_width;
 			extra_space_width = (line_end_space / numspaces_to_last_nonspace);
 		} else { // last line
